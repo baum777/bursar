@@ -122,6 +122,7 @@ export {
   oracleRegistryAbi,
   parkAdapterAbi,
   patronMarkAbi,
+  remoteIdentityAbi,
   priceGuardAbi,
   reputationAbi,
   settlementAssetAbi,
@@ -342,5 +343,8 @@ export {
   openseaAgentUrl,
   reputationRegistryAbi,
   scanAgentUrl,
+  REMOTE_AGENT_CHAINS,
+  remoteAgentId,
+  decodeAgentId,
 } from './erc8004.js';
 export type { AgentCard, AgentCardRegistration, AgentCardService, Erc8004Registries } from './erc8004.js';

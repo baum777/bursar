@@ -34,7 +34,42 @@ export const ERC8004_REGISTRIES: Readonly<Record<number, Erc8004Registries>> = O
     scanChain: 'robinhood-chain',
     openseaChain: 'robinhood',
   }),
+  // The same proxies on Base and Ethereum, read on 2026-11-02 (code present, ownerOf answering).
+  8453: Object.freeze({
+    identity: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' as Address,
+    reputation: '0x8004BAa17C55a88189AE136b182e5fdA19dE9b63' as Address,
+    validation: undefined,
+    scanChain: 'base',
+    openseaChain: 'base',
+  }),
+  1: Object.freeze({
+    identity: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' as Address,
+    reputation: '0x8004BAa17C55a88189AE136b182e5fdA19dE9b63' as Address,
+    validation: undefined,
+    scanChain: 'ethereum',
+    openseaChain: 'ethereum',
+  }),
 });
+
+/** The chains whose agents an endowment on Robinhood Chain can be made for, besides its own. */
+export const REMOTE_AGENT_CHAINS: readonly number[] = Object.freeze([8453, 1]);
+
+const REMOTE_AGENT_BITS = 160n;
+const REMOTE_AGENT_MASK = (1n << REMOTE_AGENT_BITS) - 1n;
+
+/** The id an endowment carries for an agent on another chain, as `RemoteIdentity.idOf` computes it. */
+export function remoteAgentId(chainId: number, agentId: bigint): bigint {
+  if (!Number.isInteger(chainId) || chainId <= 0) throw new RangeError(`chainId must be a positive integer, got ${chainId}`);
+  if (agentId < 0n || agentId > REMOTE_AGENT_MASK) throw new RangeError('agentId must fit in 160 bits');
+  return (BigInt(chainId) << REMOTE_AGENT_BITS) | agentId;
+}
+
+/** The chain and the agent an endowment's id names. Local agents (ids under 2^160) come back with the given chain. */
+export function decodeAgentId(id: bigint, localChainId: number): { readonly chainId: number; readonly agentId: bigint; readonly remote: boolean } {
+  const chain = id >> REMOTE_AGENT_BITS;
+  if (chain === 0n) return { chainId: localChainId, agentId: id, remote: false };
+  return { chainId: Number(chain), agentId: id & REMOTE_AGENT_MASK, remote: true };
+}
 
 export function erc8004Registries(chainId: number): Erc8004Registries | undefined {
   return ERC8004_REGISTRIES[chainId];

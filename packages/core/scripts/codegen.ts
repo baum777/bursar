@@ -47,6 +47,7 @@ const CONTRACTS = {
   WithinMandateVerifier: 'withinMandateVerifierAbi',
   Endowment: 'endowmentAbi',
   EndowmentFactory: 'endowmentFactoryAbi',
+  RemoteIdentity: 'remoteIdentityAbi',
   PatronMark: 'patronMarkAbi',
 } as const;
 

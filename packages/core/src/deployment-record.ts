@@ -110,6 +110,9 @@ export type EndowmentsDeployment = {
   readonly PatronMark: Address;
   /** The ERC-8004 identity registry whose agents are endowed. */
   readonly IdentityRegistry: Address;
+  /** Agents on other chains, by the owner the attestor last read there. Absent before v3. */
+  readonly RemoteIdentity?: Address;
+  readonly attestor?: Address;
   /** The protocol's share of each draw, in basis points. */
   readonly feeBps: number;
   /** First block to scan for endowment events. */
