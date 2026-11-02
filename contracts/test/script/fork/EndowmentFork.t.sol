@@ -9,6 +9,7 @@ import {Endowment} from "../../../src/endowment/Endowment.sol";
 import {EndowmentDeployer} from "../../../src/endowment/EndowmentDeployer.sol";
 import {EndowmentFactory} from "../../../src/endowment/EndowmentFactory.sol";
 import {PatronMark} from "../../../src/endowment/PatronMark.sol";
+import {RemoteIdentity} from "../../../src/endowment/RemoteIdentity.sol";
 import {AssetRegistry} from "../../../src/rwa/AssetRegistry.sol";
 import {PriceGuard} from "../../../src/rwa/PriceGuard.sol";
 import {StockSpendRouter} from "../../../src/rwa/StockSpendRouter.sol";
@@ -61,9 +62,12 @@ contract EndowmentForkTest is Test {
             AssetRegistry(vm.parseJsonAddress(json, ".rwa.AssetRegistry")),
             usdg,
             IDENTITY,
-            vm.parseJsonAddress(json, ".roles.treasury"),
-            100,
-            vm.parseJsonAddress(json, ".roles.guardian"),
+            EndowmentFactory.Roles({
+                feeTo: vm.parseJsonAddress(json, ".roles.treasury"),
+                feeBps: 100,
+                guardian: vm.parseJsonAddress(json, ".roles.guardian"),
+                attestor: address(this)
+            }),
             new PatronMark(vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1), "https://app.bursar.world/api/marks/"),
             _diversified(),
             maker

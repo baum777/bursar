@@ -11,6 +11,7 @@ import {StockSpendRouter} from "../rwa/StockSpendRouter.sol";
 import {Endowment} from "./Endowment.sol";
 import {EndowmentDeployer} from "./EndowmentDeployer.sol";
 import {PatronMark} from "./PatronMark.sol";
+import {RemoteIdentity} from "./RemoteIdentity.sol";
 
 /// Starts endowments and keeps the list of every one it started. It has no owner: the wiring is
 /// fixed at deployment, and the terms of each endowment are fixed when it is created.
@@ -30,6 +31,8 @@ contract EndowmentFactory {
     AssetRegistry public immutable registry;
     IERC20 public immutable usdg;
     IERC721 public immutable identity;
+    /// Agents on other chains, by the owner the attestor last read there. See `createRemote`.
+    RemoteIdentity public immutable remote;
     PatronMark public immutable marks;
     address public immutable feeTo;
     uint16 public immutable feeBps;
@@ -46,6 +49,8 @@ contract EndowmentFactory {
     event Created(
         address indexed endowment, uint256 indexed agentId, address indexed settlor, uint16 drawBps, uint16 earnShareBps
     );
+    /// Beside `Created`, for an agent on another chain: which chain, and its id there.
+    event CreatedRemote(address indexed endowment, uint64 indexed chainId, uint256 indexed agentId);
 
     error BadAssets();
     error BadWeights();
@@ -55,6 +60,16 @@ contract EndowmentFactory {
     error NoAgent(uint256 agentId);
     error ZeroAddress();
     error MarksNotBound(address marks);
+    error NotRemoteId(uint256 agentId);
+
+    /// Who is paid, who can pause, and who reads remote agents' owners. One struct, so the
+    /// constructor stays inside the stack.
+    struct Roles {
+        address feeTo;
+        uint16 feeBps;
+        address guardian;
+        address attestor;
+    }
 
     constructor(
         StockSpendRouter router_,
@@ -62,23 +77,22 @@ contract EndowmentFactory {
         AssetRegistry registry_,
         IERC20 usdg_,
         IERC721 identity_,
-        address feeTo_,
-        uint16 feeBps_,
-        address guardian_,
+        Roles memory roles_,
         PatronMark marks_,
         address[] memory diversified_,
         EndowmentDeployer deployer_
     ) {
-        if (feeTo_ == address(0) || guardian_ == address(0)) revert ZeroAddress();
-        if (feeBps_ > 1_000) revert BadShare(feeBps_);
+        if (roles_.feeTo == address(0) || roles_.guardian == address(0)) revert ZeroAddress();
+        if (roles_.feeBps > 1_000) revert BadShare(roles_.feeBps);
         router = router_;
         guard = guard_;
         registry = registry_;
         usdg = usdg_;
         identity = identity_;
-        feeTo = feeTo_;
-        feeBps = feeBps_;
-        guardian = guardian_;
+        remote = new RemoteIdentity(roles_.attestor);
+        feeTo = roles_.feeTo;
+        feeBps = roles_.feeBps;
+        guardian = roles_.guardian;
         // The marks are deployed first, naming the address this factory was going to have.
         if (address(marks_.factory()) != address(this)) revert MarksNotBound(address(marks_));
         marks = marks_;
@@ -91,7 +105,36 @@ contract EndowmentFactory {
     /// Starts an endowment for `t.agentId` and, when `gift` is above zero, makes the caller its
     /// first patron with that much USDG.
     function create(Endowment.Terms calldata t, uint256 gift) external returns (Endowment e) {
-        _check(t);
+        e = _create(identity, t, gift);
+    }
+
+    /// Starts an endowment for an agent on another chain: `agentId` on `chainId`, whose owner the
+    /// attestor has read into `remote`. `t.agentId` has to be `remote.idOf(chainId, agentId)`, and so
+    /// does any successor, so the endowment and its heir are read from the same identity.
+    function createRemote(uint64 chainId, uint256 agentId, Endowment.Terms calldata t, uint256 gift)
+        external
+        returns (Endowment e)
+    {
+        if (t.agentId != remote.idOf(chainId, agentId)) revert NotRemoteId(t.agentId);
+        e = _create(IERC721(address(remote)), t, gift);
+        emit CreatedRemote(address(e), chainId, agentId);
+    }
+
+    function count() external view returns (uint256) {
+        return all.length;
+    }
+
+    function endowmentsOf(uint256 agentId) external view returns (address[] memory) {
+        return _byAgent[agentId];
+    }
+
+    /// The endowments of an agent on another chain.
+    function endowmentsOf(uint64 chainId, uint256 agentId) external view returns (address[] memory) {
+        return _byAgent[remote.idOf(chainId, agentId)];
+    }
+
+    function _create(IERC721 id, Endowment.Terms calldata t, uint256 gift) private returns (Endowment e) {
+        _check(id, t);
         e = deployer.deploy(
             msg.sender,
             t,
@@ -100,7 +143,7 @@ contract EndowmentFactory {
                 guard: guard,
                 registry: registry,
                 usdg: usdg,
-                identity: identity,
+                identity: id,
                 marks: marks,
                 feeTo: feeTo,
                 feeBps: feeBps,
@@ -119,17 +162,9 @@ contract EndowmentFactory {
         }
     }
 
-    function count() external view returns (uint256) {
-        return all.length;
-    }
-
-    function endowmentsOf(uint256 agentId) external view returns (address[] memory) {
-        return _byAgent[agentId];
-    }
-
-    function _check(Endowment.Terms calldata t) private view {
+    function _check(IERC721 id, Endowment.Terms calldata t) private view {
         // Reverts for an identity that was never minted, so nobody endows a number.
-        if (identity.ownerOf(t.agentId) == address(0)) revert NoAgent(t.agentId);
+        if (id.ownerOf(t.agentId) == address(0)) revert NoAgent(t.agentId);
         if (t.drawBps < MIN_DRAW_BPS || t.drawBps > MAX_DRAW_BPS) revert BadDraw(t.drawBps);
         if (t.earnShareBps > BPS) revert BadShare(t.earnShareBps);
         uint256 n = t.assets.length;

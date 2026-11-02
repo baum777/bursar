@@ -9,6 +9,7 @@ import {Endowment} from "../../src/endowment/Endowment.sol";
 import {EndowmentDeployer} from "../../src/endowment/EndowmentDeployer.sol";
 import {EndowmentFactory} from "../../src/endowment/EndowmentFactory.sol";
 import {PatronMark} from "../../src/endowment/PatronMark.sol";
+import {RemoteIdentity} from "../../src/endowment/RemoteIdentity.sol";
 import {RwaFixture} from "../rwa/RwaFixture.sol";
 
 /// The ERC-8004 identity registry, as far as an endowment reads it.
@@ -32,7 +33,9 @@ contract EndowmentTest is RwaFixture {
     uint256 internal constant SUCCESSOR = 8;
 
     MockIdentity identity;
+    RemoteIdentity remote;
     EndowmentFactory factory;
+    address attestor = makeAddr("attestor");
     PatronMark marks;
 
     address settlor = makeAddr("settlor");
@@ -54,14 +57,13 @@ contract EndowmentTest is RwaFixture {
             reg,
             IERC20(address(usdg)),
             IERC721(address(identity)),
-            treasury,
-            100,
-            guardianKey,
+            EndowmentFactory.Roles({feeTo: treasury, feeBps: 100, guardian: guardianKey, attestor: attestor}),
             new PatronMark(vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1), "https://app.bursar.world/api/marks/"),
             _diversified(),
             maker
         );
         marks = factory.marks();
+        remote = factory.remote();
         for (uint256 i; i < 3; ++i) {
             address who = i == 0 ? settlor : i == 1 ? patron : stranger;
             usdg.mint(who, 10_000e6);
@@ -387,9 +389,7 @@ contract EndowmentTest is RwaFixture {
             reg,
             IERC20(address(usdg)),
             IERC721(address(identity)),
-            treasury,
-            100,
-            guardianKey,
+            EndowmentFactory.Roles({feeTo: treasury, feeBps: 100, guardian: guardianKey, attestor: attestor}),
             new PatronMark(vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1), ""),
             new address[](0),
             narrowMaker

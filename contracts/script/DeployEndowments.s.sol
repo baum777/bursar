@@ -32,6 +32,8 @@ contract DeployEndowments is BursarScript {
     string private constant MARKS = ".endowments.PatronMark";
     string private constant MAKER = ".endowments.EndowmentDeployer";
     string private constant IDENTITY_KEY = ".endowments.IdentityRegistry";
+    string private constant REMOTE = ".endowments.RemoteIdentity";
+    string private constant ATTESTOR = ".endowments.attestor";
     string private constant FROM_BLOCK = ".endowments.fromBlock";
     string private constant FEE = ".endowments.feeBps";
 
@@ -56,23 +58,36 @@ contract DeployEndowments is BursarScript {
         diversified[0] = _recordAddress(".rwa.assets.SPY.address");
 
         uint256 fromBlock = _chainBlock();
-        // The deployer, then the marks naming the factory's address, then the factory.
+        // The deployer, then the marks naming the factory's address, then the factory, which deploys
+        // the remote identity itself.
         address predicted = vm.computeCreateAddress(deployer, vm.getNonce(deployer) + 2);
         vm.startBroadcast(deployer);
         EndowmentDeployer maker = new EndowmentDeployer();
         PatronMark marks = new PatronMark(predicted, MARK_BASE_URI);
         factory = new EndowmentFactory(
-            router, guard, registry, IERC20(usdg), IERC721(IDENTITY), treasury, FEE_BPS, guardian, marks, diversified, maker
+            router,
+            guard,
+            registry,
+            IERC20(usdg),
+            IERC721(IDENTITY),
+            // The keeper reads each remote agent's owner on its home chain and writes it to the remote identity.
+            EndowmentFactory.Roles({feeTo: treasury, feeBps: FEE_BPS, guardian: guardian, attestor: _recordAddress(K.KEEPER)}),
+            marks,
+            diversified,
+            maker
         );
         vm.stopBroadcast();
 
         _expect("factory.router", address(router), address(factory.router()));
         _expect("marks.factory", address(factory), address(factory.marks().factory()));
+        _expect("remote.attestor", _recordAddress(K.KEEPER), factory.remote().attestor());
 
         _write(FACTORY, address(factory));
         _write(MARKS, address(factory.marks()));
         _write(MAKER, address(maker));
         _write(IDENTITY_KEY, IDENTITY);
+        _write(REMOTE, address(factory.remote()));
+        _write(ATTESTOR, factory.remote().attestor());
         _write(FROM_BLOCK, fromBlock);
         _write(FEE, uint256(FEE_BPS));
 
@@ -80,6 +95,8 @@ contract DeployEndowments is BursarScript {
         console2.log("deployer", deployer);
         console2.log("EndowmentFactory", address(factory));
         console2.log("PatronMark", address(factory.marks()));
+        console2.log("RemoteIdentity", address(factory.remote()));
+        console2.log("  attestor", factory.remote().attestor());
         console2.log("  router", address(router));
         console2.log("  fees to", treasury);
         console2.log("  guardian", guardian);
