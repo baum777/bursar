@@ -2482,12 +2482,14 @@ export const RAW_DEPLOYMENTS: Readonly<Record<RawDeploymentName, unknown>> = {
     "salt": "0x30690439d27020f85df2cbe5d6ecede72aaebf2add8172bc06fafd7dd4cf43d7"
   },
   "endowments": {
-    "EndowmentFactory": "0xE3efEd60E6c96dF216372654Bc1B5a7cF986a5b0",
-    "PatronMark": "0xB8a1867E846e31Ce5b3c52a6fE1e205854A5c987",
+    "EndowmentFactory": "0x3b1AF2d844C47913d90D6BDA278C6ccC92466326",
+    "PatronMark": "0x804D4C43d0660A2AF240224A7E90BdE4266495d3",
     "IdentityRegistry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
-    "fromBlock": 104119583,
+    "fromBlock": 104504371,
     "feeBps": 100,
-    "EndowmentDeployer": "0x15C2cD9ACF2A72283B90349471D0D932F328A14b"
+    "EndowmentDeployer": "0x12892b2dC544adA967292dd261fC792976DC1143",
+    "RemoteIdentity": "0xAF2226574E3F888072c2aC4697F529bFaE807c2f",
+    "attestor": "0x4c55AE3Fd264d9932A673B7CfBF80fCB112679BD"
   },
   "endowmentsV1": {
     "EndowmentFactory": "0x18a4961C3e5c201e76cdD580c22BB2a3cd3d3E6c",
@@ -2497,6 +2499,15 @@ export const RAW_DEPLOYMENTS: Readonly<Record<RawDeploymentName, unknown>> = {
     "feeBps": 100,
     "EndowmentDeployer": "0xeBD96536f3fb8E4c5eF9a06b91abe218C9273741",
     "note": "First endowment factory (2026-10-22). Retired by endowments v2: no new endowments here; the two it holds are team test endowments."
+  },
+  "endowmentsV2": {
+    "EndowmentFactory": "0xE3efEd60E6c96dF216372654Bc1B5a7cF986a5b0",
+    "PatronMark": "0xB8a1867E846e31Ce5b3c52a6fE1e205854A5c987",
+    "IdentityRegistry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    "fromBlock": 104119583,
+    "feeBps": 100,
+    "EndowmentDeployer": "0x15C2cD9ACF2A72283B90349471D0D932F328A14b",
+    "note": "Second endowment factory (2026-11-02, audit fixes). Superseded the same day by the third, which also takes agents on Base and Ethereum; no endowments were created here."
   }
 },
   "rhc-mainnet": {
