@@ -1,11 +1,13 @@
 import {
   assetRegistryAbi,
+  decodeAgentId,
   endowmentAbi,
   endowmentFactoryAbi,
   endowmentsDeployment,
   identityRegistryAbi,
   patronMarkAbi,
   priceGuardAbi,
+  remoteIdentityAbi,
   rwaDeployment,
 } from '@bursar/core';
 import type { EndowmentsDeployment, Micro } from '@bursar/core';
@@ -13,6 +15,7 @@ import type { Abi, Address } from 'viem';
 import { multicall, readContract } from 'viem/actions';
 
 import { rhcClient } from './client';
+import { homeTokenUri } from './remote-agents';
 import { CHAIN_ID, MULTICALL3, sameAddress } from './rhc';
 
 export const ENDOWMENTS: EndowmentsDeployment | undefined = endowmentsDeployment(CHAIN_ID);
@@ -168,7 +171,20 @@ export async function readEndowment(address: Address): Promise<EndowmentView> {
 
   let owner: Address | undefined;
   let agentUri: string | undefined;
-  if (ENDOWMENTS) {
+  const agent = decodeAgentId(state.agentId, CHAIN_ID);
+  if (ENDOWMENTS && agent.remote) {
+    // An agent elsewhere: its owner as Bursar last read it onto this chain, its card from home.
+    const [attested, uri] = await Promise.all([
+      ENDOWMENTS.RemoteIdentity === undefined
+        ? Promise.resolve(undefined)
+        : readContract(client, { address: ENDOWMENTS.RemoteIdentity, abi: remoteIdentityAbi, functionName: 'ownerOf', args: [state.agentId] }).catch(
+            () => undefined,
+          ),
+      homeTokenUri(agent.chainId, agent.agentId),
+    ]);
+    owner = attested as Address | undefined;
+    agentUri = uri;
+  } else if (ENDOWMENTS) {
     const identity = await multicall(client, {
       multicallAddress: MULTICALL3,
       allowFailure: true,

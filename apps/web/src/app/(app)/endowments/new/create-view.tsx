@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { endowmentFactoryAbi, identityRegistryAbi, scanAgentUrl } from '@bursar/core';
+import { endowmentFactoryAbi, identityRegistryAbi, remoteAgentId, remoteIdentityAbi, scanAgentUrl } from '@bursar/core';
 import type { Micro } from '@bursar/core';
 import { parseEventLogs } from 'viem';
 import type { Address } from 'viem';
@@ -12,6 +12,7 @@ import { readContract } from 'viem/actions';
 import { settlementAssetAbi } from '@/chain/abi';
 import { rhcClient } from '@/chain/client';
 import { ENDOWMENTS, listedStocks } from '@/chain/endowments';
+import { AGENT_CHAINS, chainLabel, homeOwner } from '@/chain/remote-agents';
 import { ADDRESSES, CHAIN_ID } from '@/chain/rhc';
 import { Address as AddressView } from '@/components/address';
 import { AmountInput } from '@/components/amount-input';
@@ -37,6 +38,7 @@ export function CreateEndowment({ initialAgent }: { readonly initialAgent: strin
   const { writeContractAsync } = useWriteContract();
   const stocks = listedStocks();
 
+  const [chainText, setChainText] = useState(String(CHAIN_ID));
   const [agentText, setAgentText] = useState(initialAgent ?? '');
   const [picks, setPicks] = useState<readonly Pick[]>([{ symbol: 'SPY', weight: '100' }]);
   const [drawBps, setDrawBps] = useState('450');
@@ -45,21 +47,43 @@ export function CreateEndowment({ initialAgent }: { readonly initialAgent: strin
   const [giftText, setGiftText] = useState('');
   const [gift, setGift] = useState<bigint | undefined>(undefined);
 
+  const chainId = Number(chainText);
+  const remote = chainId !== CHAIN_ID;
   const agentId = /^\d+$/.test(agentText.trim()) ? BigInt(agentText.trim()) : undefined;
   const successorId = successorText.trim() === '' ? 0n : /^\d+$/.test(successorText.trim()) ? BigInt(successorText.trim()) : undefined;
+  // What the endowment carries: the agent's own number here, the chain and the number for an agent elsewhere.
+  const encodedId = agentId === undefined ? undefined : remote ? remoteAgentId(chainId, agentId) : agentId;
+  const remoteIdentity = ENDOWMENTS?.RemoteIdentity;
 
   const agent = useQuery({
-    queryKey: ['bursar', 'endow-agent', agentId?.toString()],
+    queryKey: ['bursar', 'endow-agent', chainId, agentId?.toString()],
     enabled: agentId !== undefined && ENDOWMENTS !== undefined,
     retry: false,
     queryFn: async () =>
+      remote
+        ? homeOwner(chainId, agentId!)
+        : ((await readContract(rhcClient(), {
+            address: ENDOWMENTS!.IdentityRegistry,
+            abi: identityRegistryAbi,
+            functionName: 'ownerOf',
+            args: [agentId!],
+          })) as Address),
+  });
+  // For an agent elsewhere, whether Bursar's keeper has read its owner onto Robinhood Chain yet.
+  const attestation = useQuery({
+    queryKey: ['bursar', 'endow-attested', encodedId?.toString()],
+    enabled: remote && encodedId !== undefined && remoteIdentity !== undefined && agent.data !== undefined,
+    retry: false,
+    refetchInterval: (query) => (query.state.data === undefined ? 15_000 : false),
+    queryFn: async () =>
       (await readContract(rhcClient(), {
-        address: ENDOWMENTS!.IdentityRegistry,
-        abi: identityRegistryAbi,
+        address: remoteIdentity!,
+        abi: remoteIdentityAbi,
         functionName: 'ownerOf',
-        args: [agentId!],
+        args: [encodedId!],
       })) as Address,
   });
+  const attested = !remote || attestation.data !== undefined;
   const wallet = useQuery({
     queryKey: ['bursar', 'endow-wallet', connected],
     enabled: connected !== undefined && ENDOWMENTS !== undefined,
@@ -102,10 +126,18 @@ export function CreateEndowment({ initialAgent }: { readonly initialAgent: strin
       : undefined;
   const balance = wallet.data?.balance;
   const giftProblem = gift !== undefined && balance !== undefined && gift > balance ? `Your wallet holds ${usd(balance as Micro)}.` : undefined;
-  const agentProblem = agentText.trim() === '' ? undefined : agentId === undefined ? 'Enter the agent’s number.' : agent.isError ? 'No agent has this number.' : undefined;
+  const agentProblem =
+    agentText.trim() === ''
+      ? undefined
+      : agentId === undefined
+        ? 'Enter the agent’s number.'
+        : agent.isError
+          ? `No agent has this number on ${chainLabel(chainId)}.`
+          : undefined;
   const ready =
     agentId !== undefined &&
     agent.data !== undefined &&
+    attested &&
     holdingsProblem === undefined &&
     drawProblem === undefined &&
     successorId !== undefined &&
@@ -115,8 +147,9 @@ export function CreateEndowment({ initialAgent }: { readonly initialAgent: strin
   const blockedBy = [system.connectivity, system.asset];
 
   const terms = () => ({
-    agentId: agentId as bigint,
-    successorId: successorId as bigint,
+    agentId: encodedId as bigint,
+    // A successor lives where the agent lives, so it is encoded the same way.
+    successorId: remote && successorId !== 0n ? remoteAgentId(chainId, successorId as bigint) : (successorId as bigint),
     assets: picks.map((p) => stocks.find((s) => s.symbol === p.symbol)!.address),
     weightsBps: weights,
     drawBps: Number(drawBps),
@@ -130,20 +163,27 @@ export function CreateEndowment({ initialAgent }: { readonly initialAgent: strin
         description="Choose an agent, what its principal holds and how much it draws. The principal stays invested; the agent spends only the draw."
       >
         <Card title="The agent">
-          <FieldGrid columns={2}>
+          <FieldGrid columns={3}>
+            <SelectField
+              label="Where it is registered"
+              value={chainText}
+              options={(remoteIdentity === undefined ? AGENT_CHAINS.filter((c) => c.chainId === CHAIN_ID) : AGENT_CHAINS).map((c) => ({ value: String(c.chainId), label: c.label }))}
+              onChange={setChainText}
+              help="The ERC-8004 registry the agent is in. The principal is held on Robinhood Chain whichever you pick."
+            />
             <TextField
               label="Agent number"
               value={agentText}
               onChange={setAgentText}
               placeholder="8756"
-              help="Its ERC-8004 identity on Robinhood Chain. Its owner accepts the endowment before anything is drawn."
+              help={remote ? `Its number in the registry on ${chainLabel(chainId)}. Its owner accepts here with the same key before anything is drawn.` : 'Its ERC-8004 identity on Robinhood Chain. Its owner accepts the endowment before anything is drawn.'}
               {...(agentProblem === undefined ? {} : { problem: agentProblem })}
             />
             <Field label="Owned by">
               {agent.data ? (
                 <span className="space-y-1">
                   <AddressView value={agent.data} />
-                  <a href={scanAgentUrl(CHAIN_ID, agentId!)} target="_blank" rel="noreferrer" className="block text-detail underline underline-offset-2">
+                  <a href={scanAgentUrl(chainId, agentId!)} target="_blank" rel="noreferrer" className="block text-detail underline underline-offset-2">
                     See the agent on 8004scan
                   </a>
                 </span>
@@ -152,6 +192,38 @@ export function CreateEndowment({ initialAgent }: { readonly initialAgent: strin
               )}
             </Field>
           </FieldGrid>
+          {remote && agent.data !== undefined && remoteIdentity !== undefined && (
+            <div className="mt-4 space-y-2">
+              {attested ? (
+                <p className="text-detail">Bursar has read this agent’s owner onto Robinhood Chain. The endowment can be created.</p>
+              ) : (
+                <>
+                  <p className="text-detail">
+                    Before an agent from {chainLabel(chainId)} can be endowed, Bursar reads its owner onto Robinhood Chain. Ask for it once; it lands within
+                    about fifteen minutes and this page updates by itself.
+                  </p>
+                  {connected === undefined ? (
+                    <p className="text-sm">Connect a wallet on Robinhood Chain to ask.</p>
+                  ) : (
+                    <TxButton
+                      label="Ask Bursar to read this agent"
+                      tone="secondary"
+                      blockedBy={blockedBy}
+                      send={() =>
+                        writeContractAsync({
+                          address: remoteIdentity,
+                          abi: remoteIdentityAbi,
+                          functionName: 'request',
+                          args: [BigInt(chainId), agentId as bigint],
+                        })
+                      }
+                      onConfirmed={() => void attestation.refetch()}
+                    />
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </Card>
       </Section>
 
@@ -262,12 +334,19 @@ export function CreateEndowment({ initialAgent }: { readonly initialAgent: strin
                 disabled={!ready}
                 blockedBy={blockedBy}
                 send={() =>
-                  writeContractAsync({
-                    address: factory,
-                    abi: endowmentFactoryAbi,
-                    functionName: 'create',
-                    args: [terms(), giftAmount],
-                  })
+                  remote
+                    ? writeContractAsync({
+                        address: factory,
+                        abi: endowmentFactoryAbi,
+                        functionName: 'createRemote',
+                        args: [BigInt(chainId), agentId as bigint, terms(), giftAmount],
+                      })
+                    : writeContractAsync({
+                        address: factory,
+                        abi: endowmentFactoryAbi,
+                        functionName: 'create',
+                        args: [terms(), giftAmount],
+                      })
                 }
                 onConfirmed={(receipt) => {
                   const created = parseEventLogs({ abi: endowmentFactoryAbi, logs: receipt.logs, eventName: 'Created' })[0];

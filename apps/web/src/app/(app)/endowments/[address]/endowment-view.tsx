@@ -3,8 +3,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { endowmentAbi, scanAgentUrl } from '@bursar/core';
+import { decodeAgentId, endowmentAbi, scanAgentUrl } from '@bursar/core';
 import type { Micro } from '@bursar/core';
+
+import { chainLabel } from '@/chain/remote-agents';
 import { getAddress, isAddress } from 'viem';
 import type { Address, Hex } from 'viem';
 import { getContractEvents, readContract } from 'viem/actions';
@@ -76,7 +78,8 @@ export function EndowmentPage({ address }: { readonly address: Address }) {
     );
   }
 
-  const title = name.data ?? `Agent #${view.state.agentId.toString()}`;
+  const agent = decodeAgentId(view.state.agentId, CHAIN_ID);
+  const title = name.data ?? `Agent #${agent.agentId.toString()}${agent.remote ? ` on ${chainLabel(agent.chainId)}` : ''}`;
   const refresh = () => {
     void endowment.refetch();
     void history.refetch();
@@ -205,9 +208,10 @@ export function EndowmentPage({ address }: { readonly address: Address }) {
       <Section title="Terms" description="Fixed when the endowment was created.">
         <Card>
           <FieldGrid columns={3}>
-            <Field label="Agent" hint="Its ERC-8004 identity on Robinhood Chain.">
-              <a href={scanAgentUrl(CHAIN_ID, view.state.agentId)} target="_blank" rel="noreferrer" className="underline underline-offset-2">
-                #{view.state.agentId.toString()}
+            <Field label="Agent" hint={`Its ERC-8004 identity on ${chainLabel(agent.chainId)}.`}>
+              <a href={scanAgentUrl(agent.chainId, agent.agentId)} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+                #{agent.agentId.toString()}
+                {agent.remote ? ` on ${chainLabel(agent.chainId)}` : ''}
               </a>
             </Field>
             <Field label="Owner of the agent" hint="Accepts the endowment and draws from it.">
@@ -223,7 +227,7 @@ export function EndowmentPage({ address }: { readonly address: Address }) {
               {bps(view.earnShareBps)}
             </Field>
             <Field label="Successor" hint="Receives the endowment if the agent stops drawing for 180 days.">
-              {view.state.successorId === 0n ? 'None named' : `Agent #${view.state.successorId.toString()}`}
+              {view.state.successorId === 0n ? 'None named' : `Agent #${decodeAgentId(view.state.successorId, CHAIN_ID).agentId.toString()}`}
             </Field>
             <Field label="Started by">
               <AddressView value={view.settlor} />

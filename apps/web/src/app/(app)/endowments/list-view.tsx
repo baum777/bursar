@@ -3,9 +3,12 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
+import { decodeAgentId } from '@bursar/core';
 import type { Micro } from '@bursar/core';
 
 import { ENDOWMENTS, readEndowments, sources } from '@/chain/endowments';
+import { chainLabel } from '@/chain/remote-agents';
+import { CHAIN_ID } from '@/chain/rhc';
 import type { EndowmentView } from '@/chain/endowments';
 import { LevelBadge } from '@/components/badge';
 import { Button } from '@/components/button';
@@ -58,7 +61,19 @@ export function EndowmentsList() {
               empty={list.isLoading ? 'Reading the endowments.' : 'No endowments yet. Be the first to endow an agent.'}
               columns={[
                 { key: 'rank', header: '#', cell: (_, index) => <span className="tabular">{index + 1}</span>, width: '3rem' },
-                { key: 'agent', header: 'Agent', cell: (row) => <span className="font-medium">Agent #{row.state.agentId.toString()}</span> },
+                {
+                  key: 'agent',
+                  header: 'Agent',
+                  cell: (row) => {
+                    const agent = decodeAgentId(row.state.agentId, CHAIN_ID);
+                    return (
+                      <span className="font-medium">
+                        Agent #{agent.agentId.toString()}
+                        {agent.remote && <span className="text-detail text-[color:var(--color-muted)]"> on {chainLabel(agent.chainId)}</span>}
+                      </span>
+                    );
+                  },
+                },
                 { key: 'nav', header: 'Principal', align: 'right', cell: (row) => <span className="tabular">{usd(row.state.nav as Micro)}</span> },
                 {
                   key: 'draw',
