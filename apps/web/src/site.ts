@@ -1,3 +1,4 @@
+import { isAddress } from 'viem';
 import type { Address } from 'viem';
 
 import { ADDRESSES, RHC } from './chain/rhc';
@@ -9,6 +10,21 @@ export const BURSAR_TOKEN = {
   supply: '1,000,000,000',
   tradeHref: 'https://www.ponsfamily.com/launchpad/0xe4d2422ed4d203a0f1ec2043a4db1eda426fca18',
 } as const;
+
+/**
+ * Agents Bursar runs itself, as their mandate accounts or their agent keys. They make real
+ * purchases, and the stats page says what share of the settled payments are theirs.
+ * `NEXT_PUBLIC_BURSAR_OPERATED` adds to the list, comma-separated.
+ */
+export const BURSAR_OPERATED: readonly Address[] = [];
+
+export function bursarOperated(): readonly Address[] {
+  const configured = (process.env.NEXT_PUBLIC_BURSAR_OPERATED ?? '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry): entry is Address => isAddress(entry, { strict: false }));
+  return [...BURSAR_OPERATED, ...configured];
+}
 
 export type NavItem = { readonly href: string; readonly label: string };
 
@@ -42,13 +58,14 @@ export const SITE: SiteChrome = {
   home: 'https://bursar.world',
   navLabel: 'Surfaces',
   /**
-   * The ten surfaces. Each has one job, and this is the only place their order is decided.
+   * The eleven surfaces. Each has one job, and this is the only place their order is decided.
    *
    * Endowments come first: they fund an agent, and the console beside them sets the limits it spends
    * within. The workspace, where mandates are drafted, follows. Then the
    * other parties to a payment, in the order the money moves: the address that is paid and the
    * bonded resolver who rules when payer and payee disagree. Then the token, then the two surfaces
-   * that change parameters, then reference.
+   * that change parameters, then reference: the developer docs, what the protocol has settled, and
+   * the conditions a payment depends on right now.
    */
   nav: [
     { href: '/endowments', label: 'Endowments' },
@@ -60,6 +77,7 @@ export const SITE: SiteChrome = {
     { href: '/governance', label: 'Governance' },
     { href: '/ops', label: 'Operations' },
     { href: '/docs', label: 'Developers' },
+    { href: '/stats', label: 'Stats' },
     { href: '/status', label: 'Status' },
   ],
   footer: {

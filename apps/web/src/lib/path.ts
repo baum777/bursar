@@ -62,6 +62,7 @@ export const TOP_ROUTES: ReadonlySet<string> = new Set([
   'ops',
   'providers',
   'resolvers',
+  'stats',
   'status',
   'token',
   'workspace',
