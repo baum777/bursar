@@ -3,14 +3,18 @@ import { headers } from 'next/headers';
 import { preload } from 'react-dom';
 import { cookieToInitialState } from 'wagmi';
 
+import { APP_ORIGIN, shareMetadata } from '@/share';
 import { Shell } from '../../components/shell';
 import { wagmiConfig } from '../../wallet/config';
 import { Providers } from './providers';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Bursar',
-  description: 'Endow an AI agent, and set the limits it spends within, on Robinhood Chain.',
+  metadataBase: new URL(APP_ORIGIN),
+  ...shareMetadata('app', {
+    title: 'Bursar',
+    description: 'Endow an AI agent, and set the limits it spends within, on Robinhood Chain.',
+  }),
   icons: { icon: { url: '/brand/mark.png', type: 'image/png' } },
 };
 

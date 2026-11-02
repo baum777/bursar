@@ -15,7 +15,7 @@ import type { IndexedLog } from './explorer';
  * parallel spans from the block the first Bursar contract was deployed at, and only a failed span
  * (the fallback endpoint caps a query at ten thousand blocks) sends the read to the index.
  */
-const HISTORY_FLOOR: Readonly<Record<number, bigint>> = {
+export const HISTORY_FLOOR: Readonly<Record<number, bigint>> = {
   // The first v1 deploy transaction on Robinhood Chain mainnet. Nothing Bursar deployed is older.
   4663: 69_564_399n,
 };

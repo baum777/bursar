@@ -6,14 +6,16 @@ import { Address, CopyControl } from '@/components/address';
 import { Card, Field, FieldGrid, Section } from '@/components/layout';
 import { WorkerQuickstart } from '@/components/worker-quickstart';
 import { formatEthApprox } from '@/money';
+import { shareMetadata } from '@/share';
 // Straight from the module. The state barrel re-exports hooks, and a static page that touches it
 // ships wagmi and the query client to every reader.
 import { ROUND_TRIP_FEE } from '@/state/evaluate';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = shareMetadata('developers', {
   title: 'Developers · Bursar',
   description: 'SDK quickstart, the MCP server, and x402 for a provider that wants to charge agents.',
-};
+  path: '/docs',
+});
 
 /** Runs as printed with no key: it reads the live example, so a reader sees real figures first. */
 const READ = `import { formatUsdg, mandateAccount } from '@bursar/sdk';

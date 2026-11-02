@@ -4,11 +4,13 @@ import Link from 'next/link';
 import { explorerAddress, explorerTx } from '@/chain/rhc';
 import { Address, CopyControl } from '@/components/address';
 import { Card, Field, FieldGrid, Section } from '@/components/layout';
+import { shareMetadata } from '@/share';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = shareMetadata('assistants', {
   title: 'Connect an assistant · Bursar',
-  description: 'Give an AI assistant a budget, and it pays for work inside your limits. Tested end to end with Claude Code; ChatGPT, Claude and Gemini connect through the same MCP link.',
-};
+  description: 'Give ChatGPT, Claude or Gemini a budget, and it pays for work inside your limits.',
+  path: '/demo/assistants',
+});
 
 /**
  * The run this page describes: a mandate created and funded from a terminal, an assistant
@@ -45,7 +47,7 @@ const ASK = 'Pay 0.25 USDG to 0x5210D8df060A9D5ce4c1305045ED5c9548fca374 for gpu
 export default function AssistantsDemoPage() {
   return (
     <div className="space-y-10">
-      <Section title="Connect an assistant" description="Give an AI assistant a budget, and it pays for work inside your limits. Tested end to end with Claude Code; ChatGPT, Claude and Gemini connect through the same MCP link.">
+      <Section title="Connect an assistant" description="Give ChatGPT, Claude or Gemini a budget, and it pays for work inside your limits.">
         <Card>
           <p className="max-w-3xl text-sm">
             A mandate is a budget on chain: the most per payment, per day and per month, who may be paid and for what.

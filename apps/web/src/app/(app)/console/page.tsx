@@ -1,11 +1,13 @@
 import type { Metadata } from 'next';
 
+import { shareMetadata } from '@/share';
 import { ConsoleView } from './console-view';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = shareMetadata('console', {
   title: 'Console · Bursar',
   description: 'Give an AI agent a budget it cannot exceed, and see what each of your mandates has left.',
-};
+  path: '/console',
+});
 
 export default function ConsolePage() {
   return <ConsoleView />;

@@ -4,13 +4,15 @@ import { join } from 'node:path';
 import type { Metadata } from 'next';
 
 import { Card, Section } from '@/components/layout';
+import { shareMetadata } from '@/share';
 
 import { Inline, Markdown, parseMarkdown } from './markdown';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = shareMetadata('ruling-policy', {
   title: 'Ruling policy · Bursar',
   description: 'How disputed payments are ruled on: who rules, the rules they apply, the evidence that counts and when each step happens.',
-};
+  path: '/docs/ruling-policy',
+});
 
 /** Built once from the repository's copy, so the page and the file cannot drift apart. */
 export const dynamic = 'force-static';

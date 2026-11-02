@@ -4,14 +4,16 @@ import Link from 'next/link';
 import { explorerAddress, explorerTx } from '@/chain/rhc';
 import { Address, CopyControl } from '@/components/address';
 import { Card, Field, FieldGrid, Section } from '@/components/layout';
+import { shareMetadata } from '@/share';
 
 import { safeAppHome, safeAppOpen } from '../../console/lib/safe-signing';
 import { LIVE } from './record';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = shareMetadata('safe-budgets', {
   title: 'Budgets from a Safe · Bursar',
   description: 'A treasury gives its agents budgets from a Safe. The Safe creates the mandate, funds it, sets the limits and signs the approvals.',
-};
+  path: '/demo/safe-budgets',
+});
 
 const CONSOLE_URL = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://app.bursar.world';
 
