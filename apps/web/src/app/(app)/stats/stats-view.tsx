@@ -37,7 +37,6 @@ export function StatsView({ stats }: { readonly stats: Stats }) {
       />
     ),
     providers && <Figure key="registered" label="Providers registered" value={count(providers.registered)} hint="Staked and open to take payments" />,
-    payments && <Figure key="paid" label="Providers paid" value={count(payments.providersPaid)} hint="Addresses that have received a payment" />,
     endowments !== undefined && endowments.count > 0 && (
       <Figure
         key="endowments"
@@ -59,7 +58,7 @@ export function StatsView({ stats }: { readonly stats: Stats }) {
             <div className="grid grid-cols-2 gap-x-6 gap-y-6 lg:grid-cols-4">
               <Figure label="Settled" value={usd(payments.settled.volume as Micro)} hint={`${plural(payments.settled.count, 'payment')} released to providers`} />
               <Figure label="In escrow now" value={usd(payments.held.amount as Micro)} hint={`${plural(payments.held.count, 'payment')} awaiting delivery or a ruling`} />
-              <Figure label="Refunded" value={usd(payments.refunded.amount as Micro)} hint={`${plural(payments.refunded.count, 'payment')} returned to the payer`} />
+              <Figure label="Providers paid" value={count(payments.providersPaid)} hint="Addresses that have received a payment" />
               <Figure label="Disputes opened" value={count(payments.disputes.opened)} hint={`${count(payments.disputes.ruled)} ruled by resolvers`} />
             </div>
             {payments.operatedShare !== undefined && (
@@ -71,7 +70,7 @@ export function StatsView({ stats }: { readonly stats: Stats }) {
         )}
         {reach.length > 0 && (
           <Card title="Mandates and providers">
-            <div className={`grid grid-cols-2 gap-x-6 gap-y-6 ${reach.length === 5 ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>{reach}</div>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-6 lg:grid-cols-4">{reach}</div>
           </Card>
         )}
       </Section>

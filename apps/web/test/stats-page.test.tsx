@@ -42,18 +42,17 @@ describe('the stats page', () => {
   const html = render(FULL);
   const page = text(html);
 
-  it('leads with what was settled, held and refunded', () => {
-    expect(page).toContain('Settled $10.70 53 payments released to providers');
-    expect(page).toContain('In escrow now $0.25 1 payment awaiting delivery or a ruling');
-    expect(page).toContain('Refunded $9.05 46 payments returned to the payer');
-    expect(page).toContain('Disputes opened 5 5 ruled by resolvers');
+  it('leads with what was settled and held, and who was paid', () => {
+    expect(page).toContain(
+      'Settled $10.70 53 payments released to providers In escrow now $0.25 1 payment awaiting delivery or a ruling Providers paid 1 Addresses that have received a payment Disputes opened 5 5 ruled by resolvers',
+    );
+    expect(page).not.toContain('Refunded');
   });
 
   it('shows mandates, providers and endowments', () => {
     expect(page).toContain('Mandates 48');
     expect(page).toContain('Held in mandates $5.71 USDG agents can spend now');
     expect(page).toContain('Providers registered 2');
-    expect(page).toContain('Providers paid 1');
     expect(page).toContain('Endowments 2 $5.28 invested for agents');
   });
 
