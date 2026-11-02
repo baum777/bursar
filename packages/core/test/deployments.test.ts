@@ -194,6 +194,12 @@ describe('deployment records', () => {
     expect(parsed.supersedes).toBe('rhc-mainnet-v2');
   });
 
+  it('carries the first block to scan where the record names one', () => {
+    expect(parseDeployment(exampleRecord({ fromBlock: 77_686_776 })).fromBlock).toBe(77_686_776);
+    expect(parseDeployment(exampleRecord()).fromBlock).toBeUndefined();
+    expect(() => parseDeployment(exampleRecord({ fromBlock: -1 }))).toThrow(/fromBlock is -1/);
+  });
+
   it('still asks a record on any other chain for its endpoints', () => {
     expect(() => parseDeployment(scriptedRecord({ chainId: EXAMPLE_CHAIN }))).toThrow(/has no "rpc"/);
   });

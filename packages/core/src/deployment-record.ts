@@ -59,6 +59,11 @@ export type Deployment = {
   readonly deployer: Address;
   readonly contracts: Readonly<Record<MandateContractName, Address>>;
   /**
+   * The first block to scan for this record's own contracts. The first two records on Robinhood
+   * Chain predate the field and carry none.
+   */
+  readonly fromBlock?: number;
+  /**
    * The timelock that keeps the escrow's brake, pause and unpause, where the record names one apart
    * from its AdminTimelock. From v4 on it is the one-hour delay the third set was governed by.
    */
@@ -274,6 +279,11 @@ export function parseDeployment(json: unknown, label = 'record'): Deployment {
         ? address(record, name, 'escrowPauser')
         : undefined;
 
+  const fromBlock = record['fromBlock'];
+  if (fromBlock !== undefined && (typeof fromBlock !== 'number' || !Number.isSafeInteger(fromBlock) || fromBlock < 0)) {
+    throw new DeploymentError(name, `fromBlock is ${String(fromBlock)}.`);
+  }
+
   const rolesRecord = object(field(record, name, 'roles'), name, 'roles');
   const signers = rolesRecord['timelockSigners'];
   if (!Array.isArray(signers) || signers.length === 0) {
@@ -345,6 +355,7 @@ export function parseDeployment(json: unknown, label = 'record'): Deployment {
     settlementDecimals: MICRO_DECIMALS,
     deployer: address(record, name, 'deployer'),
     contracts: Object.freeze(contracts) as Readonly<Record<MandateContractName, Address>>,
+    ...(fromBlock === undefined ? {} : { fromBlock }),
     ...(escrowPauser === undefined ? {} : { escrowPauser }),
     roles: Object.freeze({
       timelockSigners: Object.freeze(signers as Address[]),
