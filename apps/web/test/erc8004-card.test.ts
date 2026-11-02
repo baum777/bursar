@@ -21,7 +21,7 @@ type Call = { readonly functionName: string; readonly args?: readonly unknown[];
 const answers: Record<string, (call: Call) => unknown> = {};
 const failing = new Set<string>();
 
-vi.mock('@/chain/client', () => ({ rhcClient: () => ({ fake: true }) }));
+vi.mock('@/chain/client', () => ({ rhcClient: () => ({ fake: true, getBlockNumber: async () => 103_905_774n }) }));
 vi.mock('@/chain/mandates', () => ({ mandateCodeVersion: async (account: Address) => (account.toLowerCase() === MANDATE.toLowerCase() ? 'v6' : undefined) }));
 vi.mock('viem/actions', async (original) => ({
   ...(await original<typeof import('viem/actions')>()),
@@ -74,10 +74,24 @@ describe('a provider card', () => {
       expect.arrayContaining([{ name: 'web', endpoint: `https://app.bursar.world/providers/${PROVIDER}` }]),
     );
     expect(card['registrations']).toEqual([{ agentId: 9100, agentRegistry: `eip155:4663:${IDENTITY}` }]);
-    expect(String(card['description'])).toContain('12.50 USDG stake');
-    expect(String(card['description'])).toContain('Score 87 of 100');
-    expect(String(card['description'])).toContain('220.75 USDG');
-    expect(card['bursar']).toMatchObject({ role: 'provider', stake: '12.50', score: 87, settled: { delivered: 14, contested: 2, returned: 1 } });
+    // The description is a fixed sentence (explorers cache it); the figures live in the bursar block,
+    // read at one named block, each with the call behind it.
+    expect(String(card['description'])).not.toMatch(/\d/);
+    expect(card['bursar']).toMatchObject({
+      role: 'provider',
+      asOfBlock: 103_905_774,
+      scoreSource: 'bursar-reputation',
+      stake: '12.50',
+      score: 87,
+      largestJob: '220.75',
+      settled: { delivered: 14, contested: 2, returned: 1 },
+    });
+    expect((card['bursar'] as { sources: Record<string, string> }).sources).toEqual({
+      listing: expect.stringContaining(`.getAgent(${PROVIDER})`),
+      score: expect.stringContaining(`.score(${PROVIDER})`),
+      largestJob: expect.stringContaining(`.capOf(${PROVIDER})`),
+      settled: expect.stringContaining(`.payeeStats(${PROVIDER})`),
+    });
   });
 
   it('drops a token the registry does not tie to the subject', async () => {
