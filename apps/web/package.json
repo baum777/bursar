@@ -21,6 +21,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "codegen:token": "tsx scripts/token-codegen.ts",
+    "og": "tsx scripts/og.ts",
     "probe": "tsx scripts/probe-chain.ts"
   },
   "dependencies": {

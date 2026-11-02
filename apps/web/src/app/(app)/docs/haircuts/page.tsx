@@ -7,11 +7,13 @@ import type { HaircutSchedule, HaircutTier } from '@/chain/collateral';
 import { Address } from '@/components/address';
 import { Card, Field, FieldGrid, Section } from '@/components/layout';
 import { bps, usd } from '@/money';
+import { shareMetadata } from '@/share';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = shareMetadata('haircuts', {
   title: 'Collateral haircuts · Bursar',
   description: 'The haircut tiers, borrowing floor and liquidation terms of the collateral lane, read from Robinhood Chain.',
-};
+  path: '/docs/haircuts',
+});
 
 /** Read from chain on the server, then kept for five minutes. */
 export const revalidate = 300;

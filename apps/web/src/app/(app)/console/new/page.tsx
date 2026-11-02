@@ -1,12 +1,14 @@
 import type { Metadata } from 'next';
 
 import { readFundingLane } from '@/chain/mandates';
+import { shareMetadata } from '@/share';
 import { CreateMandateView } from './create-view';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = shareMetadata('console-new', {
   title: 'Create a mandate · Bursar',
   description: "Set your agent's limits and payees, and see the mandate's address before it exists.",
-};
+  path: '/console/new',
+});
 
 export default async function NewMandatePage({
   searchParams,

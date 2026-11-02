@@ -3,6 +3,7 @@ import { getAddress } from 'viem';
 
 import { shortAddress } from '@/chain';
 import { readsAsAddress } from '@/lib/path';
+import { shareMetadata } from '@/share';
 
 import { PayeeDesk } from './payee-desk';
 import { UnreadablePayee } from './unreadable-payee';
@@ -16,11 +17,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     return { title: 'Not an address · Bursar', description: 'This link does not contain a valid address.' };
   }
 
-  return {
+  return shareMetadata('providers', {
     title: `Payee ${shortAddress(getAddress(payee))} · Bursar`,
-    description:
-      'Public payment record and job ceiling for this provider on Bursar.',
-  };
+    description: 'Public payment record and job ceiling for this provider on Bursar.',
+    path: `/providers/${getAddress(payee)}`,
+  });
 }
 
 export default async function PayeePage({ params }: Params) {

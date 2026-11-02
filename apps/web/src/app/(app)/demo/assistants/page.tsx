@@ -4,11 +4,13 @@ import Link from 'next/link';
 import { explorerAddress, explorerTx } from '@/chain/rhc';
 import { Address, CopyControl } from '@/components/address';
 import { Card, Field, FieldGrid, Section } from '@/components/layout';
+import { shareMetadata } from '@/share';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = shareMetadata('assistants', {
   title: 'Connect an assistant · Bursar',
   description: 'Give ChatGPT, Claude or Gemini a budget, and it pays for work inside your limits.',
-};
+  path: '/demo/assistants',
+});
 
 /**
  * The run this page describes: a mandate created and funded from a terminal, an assistant
