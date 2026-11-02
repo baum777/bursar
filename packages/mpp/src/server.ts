@@ -19,6 +19,10 @@ export type UsdgChargeOptions = Omit<ChargeParameters, 'authorization' | 'chainI
  * routes a stock x402 client uses, so the server holds no key. Everything `evm.charge` accepts is
  * accepted here, except the chain and the token, which are USDG on Robinhood Chain.
  *
+ * x402 route binding defaults to `resource`, which is what lets a client built on the reference
+ * x402 packages pay: `mppx`'s own `required` mode asks for an extension only `mppx` clients send.
+ * Pass `x402: { routeBinding: 'required' }` to serve `mppx` clients alone.
+ *
  * ```ts
  * const mppx = Mppx.create({ methods: [usdgCharge({ recipient })], secretKey });
  * app.get('/quote', mppx.evm.charge({ amount: '0.01' }), handler);
@@ -29,6 +33,6 @@ export function usdgCharge(options: UsdgChargeOptions): ReturnType<typeof evm.ch
   return evm.charge({
     ...rest,
     currency: USDG,
-    x402: { facilitator: FACILITATOR, ...x402 },
+    x402: { facilitator: FACILITATOR, routeBinding: 'resource', ...x402 },
   } as ChargeParameters);
 }
