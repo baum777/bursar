@@ -113,7 +113,7 @@ export function IdentitySection(props: IdentitySectionProps) {
   if (REGISTRIES === undefined) return null;
 
   return (
-    <Section title="Agent identity" description="An ERC-8004 identity on Robinhood Chain, listed on 8004scan and OpenSea.">
+    <Section title="Agent identity" description="An ERC-8004 identity on Robinhood Chain, indexed by 8004scan and viewable on OpenSea.">
       <Card>
         <ErrorSurface error={error} action="Reading the identity registry" onRetry={refresh} />
         {isLoading && reading === undefined && <Skeleton height={56} />}

@@ -1,4 +1,4 @@
-import { BASE_MAINNET, canonicalNetwork, deriveNonce, mulBps, sameNetwork, toMicro } from '@bursar/core';
+import { BASE_MAINNET, canonicalNetwork, deriveNonce, mulBps, readRequestURI, requestCommit, sameNetwork, toMicro } from '@bursar/core';
 import type { Micro } from '@bursar/core';
 import { keccak256, toBytes } from 'viem';
 import type { Address, Hex } from 'viem';
@@ -29,6 +29,7 @@ export const BASE_REASON = {
   payee: 'base_lock_payee_mismatch',
   amount: 'base_lock_amount_mismatch',
   unbound: 'base_lock_not_bound',
+  payTo: 'base_lock_payto_mismatch',
   deadline: 'base_lock_deadline_too_close',
   replay: 'base_lock_already_paid',
   payer: 'base_payer_not_a_mandate',
@@ -108,6 +109,12 @@ export type BaseLaneOptions = {
   readonly minLockMicro: Micro;
   readonly floatMinimumMicro: Micro;
   readonly maxPaymentMicro: Micro;
+  /**
+   * Refuse a lock whose request document does not name the Base payee. Clients from @bursar/sdk
+   * 0.3 name it; turn this on once older clients have moved, and every Base payment's recipient is
+   * then on Robinhood Chain in the lock that paid for it.
+   */
+  readonly requireBoundPayee?: boolean;
   readonly log?: (line: string) => void;
   /** Unix seconds. */
   readonly now?: () => number;
@@ -259,6 +266,24 @@ export class BaseLane {
       if (lock.amount !== quote.lockMicro) return refuse(BASE_REASON.amount, `lock ${reference.id} holds ${lock.amount} USDG atomic units, and ${amount} USDC with the fee needs ${quote.lockMicro}`);
       if (!same(lock.inputCommit, reference.inputCommit)) return refuse(BASE_REASON.unbound, `lock ${reference.id} commits to a different input than the one presented`);
       if (!opensFor(lock, binding)) return refuse(BASE_REASON.unbound, `lock ${reference.id} was not opened for this request`);
+      // The lock is payable to the float, so the mandate's merchant list never sees the service.
+      // The request document the lock commits to names who the USDC goes to, and the lane signs
+      // only an authorisation to exactly that payee, network, asset and amount.
+      // Only a document the lock actually commits to can name the payee: a lock bound by the raw
+      // nonce carries an inputURI nobody committed to.
+      const document = readRequestURI(lock.inputURI);
+      const payee = document !== null && same(requestCommit(document), lock.inputCommit) ? document.payee : undefined;
+      if (payee === undefined) {
+        if (this.options.requireBoundPayee) return refuse(BASE_REASON.payTo, `lock ${reference.id} does not name the Base payee it pays; upgrade @bursar/sdk`);
+        this.log(`base pay unbound payee lock=${reference.id} payTo=${payTo}`);
+      } else if (
+        !sameNetwork(payee.network, this.options.float.network) ||
+        !same(payee.asset, this.options.float.asset) ||
+        !same(payee.payTo, payTo) ||
+        BigInt(payee.amount) !== amount
+      ) {
+        return refuse(BASE_REASON.payTo, `lock ${reference.id} pays ${payee.amount} to ${payee.payTo}, and the offer asks ${amount} to ${payTo}`);
+      }
       if (lock.deadline < mustRemain) return refuse(BASE_REASON.deadline, `lock ${reference.id} runs out at ${lock.deadline}, and the authorization needs it to hold until ${mustRemain}`);
 
       const account = await this.options.escrow.mandate(reference.mandate);
@@ -398,6 +423,9 @@ export class BaseLane {
       } catch (error) {
         failed += 1;
         this.log(`base reconcile failed payment=${payment.id} lock=${payment.lockId} reason=${describe(error)}`);
+        // To the back of the queue: fifty rows that keep failing must not stop every later payment
+        // from being settled or returned before its lock runs out.
+        await this.options.ledger.defer(payment.id).catch(() => undefined);
       }
     }
     return { checked: open.length, settled, returned, pending, failed };

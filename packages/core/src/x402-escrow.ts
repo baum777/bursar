@@ -39,18 +39,46 @@ export type RequestDocument = {
   readonly resource: string;
   /** `deriveNonce` over the body digest and the payer's salt. Binds the lock to the request. */
   readonly requestNonce: Hex;
+  /**
+   * Who is paid on another network, when the lock pays a lane rather than the provider: the Base
+   * lane's lock is payable to its float, so the mandate's merchant list cannot see the service. The
+   * document then names the CAIP-2 network, the asset, the payee and the atomic amount, and the lane
+   * signs only an authorisation to exactly that. Absent for a lock payable to the provider itself.
+   */
+  readonly payee?: RequestPayee;
 };
+
+export type RequestPayee = {
+  readonly network: string;
+  readonly asset: Address;
+  readonly payTo: Address;
+  /** Atomic units of `asset`, as a decimal string. */
+  readonly amount: string;
+};
+
+const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 
 export function requestDocument(input: {
   readonly method: string;
   readonly url: string;
   readonly binding: PaymentBinding;
+  readonly payee?: RequestPayee;
 }): RequestDocument {
   const { origin, pathname } = new URL(input.url);
-  return {
+  const document = {
     method: input.method.toUpperCase(),
     resource: `${origin}${pathname}`,
     requestNonce: deriveNonce(input.binding),
+  };
+  if (input.payee === undefined) return document;
+  return {
+    ...document,
+    payee: {
+      network: input.payee.network,
+      asset: input.payee.asset.toLowerCase() as Address,
+      payTo: input.payee.payTo.toLowerCase() as Address,
+      amount: BigInt(input.payee.amount).toString(),
+    },
   };
 }
 
@@ -85,13 +113,28 @@ export function readRequestURI(uri: string): RequestDocument | null {
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
 
   const record = parsed as Record<string, unknown>;
-  if (Object.keys(record).sort().join(',') !== 'method,requestNonce,resource') return null;
+  const keys = Object.keys(record).sort().join(',');
+  if (keys !== 'method,requestNonce,resource' && keys !== 'method,payee,requestNonce,resource') return null;
 
   const { method, resource, requestNonce } = record;
   if (typeof method !== 'string' || method === '' || typeof resource !== 'string' || resource === '') return null;
   if (!isHex(requestNonce) || requestNonce.length !== 66) return null;
+  if (record.payee === undefined) return { method, resource, requestNonce };
 
-  return { method, resource, requestNonce };
+  const payee = readPayee(record.payee);
+  return payee === null ? null : { method, resource, requestNonce, payee };
+}
+
+function readPayee(raw: unknown): RequestPayee | null {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
+  const entry = raw as Record<string, unknown>;
+  if (Object.keys(entry).sort().join(',') !== 'amount,asset,network,payTo') return null;
+  const { network, asset, payTo, amount } = entry;
+  if (typeof network !== 'string' || network === '') return null;
+  if (typeof asset !== 'string' || !ADDRESS_RE.test(asset)) return null;
+  if (typeof payTo !== 'string' || !ADDRESS_RE.test(payTo)) return null;
+  if (typeof amount !== 'string' || !/^[1-9]\d{0,77}$/.test(amount)) return null;
+  return { network, asset: asset as Address, payTo: payTo as Address, amount };
 }
 
 /** Leads the settlement nonce, so it collides with no EIP-3009 nonce a payer derives. */

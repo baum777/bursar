@@ -90,7 +90,10 @@ export type BaseLedger = {
   promised(float: Address): Promise<Micro>;
   find(id: string): Promise<BasePayment | null>;
   findLock(chainId: number, escrow: Address, lockId: bigint): Promise<BasePayment | null>;
+  /** Open rows, least recently touched first, so a row that keeps failing cannot hold the head. */
   listOpen(limit: number): Promise<BasePayment[]>;
+  /** Sends a row the pass could not finish to the back of the queue. */
+  defer(id: string): Promise<void>;
   listMandate(mandate: Address, limit: number): Promise<BasePayment[]>;
   report(id: string, transaction: Hex): Promise<void>;
   markPaid(id: string, baseTransaction: Hex | null): Promise<void>;

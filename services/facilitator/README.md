@@ -159,6 +159,7 @@ answers 429 as well. Left unset, the switch is off and the three paths answer 40
 | `FACILITATOR_FEE_BPS` | yes | 0 to 9999. The fee on each settle this service broadcasts, before a staked payee's rebate. See [The fee](#the-fee). |
 | `FACILITATOR_FEE_FLOOR_MICRO` | yes | Atomic micro-USD. The smallest fee this deployment will spend a broadcast on. No rebate takes a fee below it. |
 | `FACILITATOR_BASE_KEY` | no | Turns the Base lane on. The key of the lane's one address: the USDC float on Base and the payee of every lock the lane opens on Robinhood Chain. Not the relayer, and none of the funding roles. See [The Base lane](#the-base-lane-1). |
+| `FACILITATOR_BASE_REQUIRE_BOUND_PAYEE` | no | `true` refuses a Base lock whose request document does not name the Base payee. Defaults to `false` while clients before `@bursar/sdk` 0.3 are still paying. |
 | `FACILITATOR_BASE_FEE_BPS`, `FACILITATOR_BASE_FEE_FLOOR_MICRO` | with the key | The fee on each Base payment, in basis points of the USDC amount, and the smallest fee in atomic units. Money, so no default. |
 | `FACILITATOR_BASE_FLOAT_MINIMUM_MICRO` | with the key | USDC atomic units the lane keeps in reserve. A payment that would dip into it is refused as `base_float_insufficient`. |
 | `FACILITATOR_BASE_MAX_PAYMENT_MICRO` | with the key | The most USDC one authorization may carry. |
@@ -255,6 +256,15 @@ the fee as the difference. Promised float is the USDC sum of authorizations out 
 quote that would leave the balance less that sum under `FACILITATOR_BASE_FLOAT_MINIMUM_MICRO` is
 refused before anything is locked. `GET /base/float` and `/healthz` report the float, what is
 promised, what is available, and how many payments sit past their lock's deadline.
+
+**Who the USDC goes to.** The lock is payable to the lane's float, so a mandate's merchant list
+lists the float, not the service on Base. Adding the float to a mandate lets its agent pay any x402
+service on Base, inside the mandate's per-payment, daily and monthly caps and this facilitator's
+`FACILITATOR_BASE_MAX_PAYMENT_MICRO`. From `@bursar/sdk` 0.3 the request document each lock commits
+to names the Base network, asset, `payTo` and amount, and the lane signs only an authorization to
+exactly those, so every Base recipient is on Robinhood Chain in the lock that paid it. Set
+`FACILITATOR_BASE_REQUIRE_BOUND_PAYEE=true` once older clients have moved, and locks that do not
+name their payee are refused.
 
 The lane's address needs USDC on Base and nothing else there: the settling facilitator pays the gas.
 On Robinhood Chain it needs a little ETH for release and cancel, a stake in the agent registry so the

@@ -153,8 +153,13 @@ export function createPostgresStore(db: Database): ConnectionStore {
     async revoke(id, at) {
       const row = await one<Row>(
         db,
-        `UPDATE bursar_mcp_connections SET status = 'revoked', revoked_at = $2
-         WHERE id = $1::uuid AND status = 'active' RETURNING ${COLUMNS}`,
+        // A revoked connection keeps no way to sign: the sealed agent key is wiped with the status,
+        // so a later read of the database and the KEK together can no longer spend from the seat.
+        // The agent stays seated on chain until the owner calls setAgent; the console says so.
+        `UPDATE bursar_mcp_connections
+            SET status = 'revoked', revoked_at = $2,
+                key_ciphertext = '\\x'::bytea, key_nonce = '\\x'::bytea, key_tag = '\\x'::bytea
+          WHERE id = $1::uuid AND status = 'active' RETURNING ${COLUMNS}`,
         [id, at],
       );
       return row ? fromRow(row) : null;
@@ -211,7 +216,8 @@ export function createMemoryStore(): ConnectionStore {
     async revoke(id, at) {
       const row = rows.get(id);
       if (!row || row.status !== 'active') return null;
-      const revoked: Connection = { ...row, status: 'revoked', revokedAt: at };
+      const empty = new Uint8Array(0);
+      const revoked: Connection = { ...row, status: 'revoked', revokedAt: at, key: { ...row.key, ciphertext: empty, nonce: empty, tag: empty } };
       rows.set(id, revoked);
       return revoked;
     },

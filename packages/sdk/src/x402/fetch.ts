@@ -496,7 +496,14 @@ async function payThroughBase(input: {
     requestHash: hashRequest(new Uint8Array(await input.retryable.clone().arrayBuffer())),
     salt: randomSalt(),
   };
-  const document = requestDocument({ method: input.retryable.method, url: resource, binding });
+  // The lock pays the lane's float, so the document names the service the USDC goes to. The lane
+  // signs only for this payee and amount, and the owner reads it off the lock in Settlements.
+  const document = requestDocument({
+    method: input.retryable.method,
+    url: resource,
+    binding,
+    payee: { network: BASE_MAINNET.network, asset: BASE_MAINNET.usdc, payTo: requirements.payTo, amount: requirements.amount.toString() },
+  });
   const inputCommit = requestCommit(document);
 
   const paid = await spender.pay({

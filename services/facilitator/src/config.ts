@@ -191,6 +191,8 @@ const schema = {
   /** USDC the lane keeps in reserve. A payment that would dip into it is refused. */
   FACILITATOR_BASE_FLOAT_MINIMUM_MICRO: optional(envVar.micro()),
   FACILITATOR_BASE_MAX_PAYMENT_MICRO: optional(envVar.micro({ min: toMicro(1) })),
+  /** Refuse a Base lock whose request document does not name the Base payee (SDK 0.3 and up). */
+  FACILITATOR_BASE_REQUIRE_BOUND_PAYEE: withDefault(envVar.boolean(), false),
 
   TRUST_TOPIC: withDefault(envVar.string({ minLength: 1 }), 'mandate.trust.v1'),
   TRUST_SINK_URL: optional(envVar.url({ protocols: ['http:', 'https:'] })),
@@ -209,6 +211,7 @@ export type BaseLaneConfig = {
   readonly feeFloorMicro: Micro;
   readonly floatMinimumMicro: Micro;
   readonly maxPaymentMicro: Micro;
+  readonly requireBoundPayee: boolean;
 };
 
 export type FacilitatorConfig = {
@@ -391,6 +394,7 @@ export function loadConfig(source: EnvSource = process.env): FacilitatorConfig {
       feeFloorMicro: env.FACILITATOR_BASE_FEE_FLOOR_MICRO as Micro,
       floatMinimumMicro: env.FACILITATOR_BASE_FLOAT_MINIMUM_MICRO as Micro,
       maxPaymentMicro: env.FACILITATOR_BASE_MAX_PAYMENT_MICRO as Micro,
+      requireBoundPayee: env.FACILITATOR_BASE_REQUIRE_BOUND_PAYEE,
     };
   }
 

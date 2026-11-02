@@ -148,10 +148,14 @@ export class PostgresBaseLedger implements BaseLedger {
     const rows = await many<Row>(
       this.db,
       `SELECT ${COLUMNS} FROM bursar_base_payments WHERE status IN ('signed', 'paid')
-       ORDER BY created_at ASC LIMIT $1`,
+       ORDER BY updated_at ASC, created_at ASC LIMIT $1`,
       [limit],
     );
     return rows.map(toPayment);
+  }
+
+  async defer(id: string): Promise<void> {
+    await this.db.query(`UPDATE bursar_base_payments SET updated_at = $2 WHERE id = $1::uuid AND status IN ('signed', 'paid')`, [id, this.now()]);
   }
 
   async listMandate(mandate: Address, limit: number): Promise<BasePayment[]> {

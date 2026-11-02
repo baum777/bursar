@@ -132,6 +132,8 @@ contract Endowment is ReentrancyGuard {
 
     uint256 public agentId;
     uint256 public successorId;
+    /// An heir the settlor proposed while an agent holds the endowment, awaiting that owner's yes.
+    uint256 public proposedSuccessor;
     address public mandate;
     bool public accepted;
     bool public frozen;
@@ -178,7 +180,9 @@ contract Endowment is ReentrancyGuard {
     event Lapsed(uint256 indexed agentId, uint256 indexed successorId);
     event Reclaimed(address indexed patron, uint256 share);
     event SuccessorSet(uint256 successorId);
+    event SuccessorProposed(uint256 successorId);
     event FrozenSet(bool frozen);
+    event CheckedIn(uint256 indexed agentId, address indexed by);
 
     error NotOwner();
     error NotDrawer();
@@ -200,6 +204,7 @@ contract Endowment is ReentrancyGuard {
     error StillActive(uint256 at);
     error RefundsClosed(uint256 at);
     error NothingGiven();
+    error NotProposed(uint256 successorId);
 
     constructor(address settlor_, Terms memory t, Wiring memory w) {
         settlor = settlor_;
@@ -249,7 +254,10 @@ contract Endowment is ReentrancyGuard {
         if (raw == 0) revert ZeroAmount();
         if (!_isAsset(asset)) revert NotAnAsset(asset);
         _sync();
-        (uint256 priceE8,,) = guard.valuationPrice(asset);
+        // A gift in kind is credited only at a price the guard stands behind: a stale feed or an
+        // off-band pool would let a patron buy cheap and be credited dear, at other patrons' cost.
+        (uint256 priceE8,, bool fresh) = guard.valuationPrice(asset);
+        if (!fresh) revert StaleValuation(asset);
         uint256 value = _value(asset, raw, priceE8);
         IERC20(asset).safeTransferFrom(msg.sender, address(this), raw);
         _credit(msg.sender, value);
@@ -403,11 +411,25 @@ contract Endowment is ReentrancyGuard {
 
     // When the agent goes quiet.
 
-    /// After 180 days without a draw from the agent's side, the endowment passes to the named
+    /// The agent's side says it is alive without drawing. A draw that pays nothing, because the
+    /// principal is underwater or the guardian has frozen it, would otherwise leave the agent no way
+    /// to keep the endowment from lapsing.
+    function checkIn() external {
+        if (!accepted) revert NotAccepted();
+        if (msg.sender != identity.ownerOf(agentId) && msg.sender != IMandateAccount(mandate).agent()) {
+            revert NotDrawer();
+        }
+        lastActive = uint64(block.timestamp);
+        emit CheckedIn(agentId, msg.sender);
+    }
+
+    /// After 180 days without a draw or check-in from the agent's side, the endowment passes to the named
     /// successor, whose owner then accepts it. With no successor it rests: the same owner can
     /// accept it again, and naming a successor passes it on.
     function lapse() external nonReentrant {
         if (!accepted) revert NotAccepted();
+        // A guardian freeze stops the draw; it does not count against the agent.
+        if (frozen) revert IsFrozen();
         if (block.timestamp < lastActive + QUIET) revert StillActive(lastActive + QUIET);
         uint256 previous = agentId;
         accepted = false;
@@ -445,6 +467,14 @@ contract Endowment is ReentrancyGuard {
 
     function setSuccessor(uint256 successorId_) external {
         if (msg.sender != settlor) revert NotSettlor();
+        // While an agent holds the endowment, the settlor can only propose a new heir; the holding
+        // agent's owner has to confirm it. Otherwise a settlor could name its own agent and wait
+        // out a lapse, and the agent's owner cannot rewrite the settlor's terms alone either.
+        if (accepted) {
+            proposedSuccessor = successorId_;
+            emit SuccessorProposed(successorId_);
+            return;
+        }
         emit SuccessorSet(successorId_);
         if (!accepted && everAccepted && successorId_ != 0 && successorId_ != agentId) {
             emit Lapsed(agentId, successorId_);
@@ -454,6 +484,16 @@ contract Endowment is ReentrancyGuard {
             return;
         }
         successorId = successorId_;
+    }
+
+    /// The holding agent's owner agrees to the heir the settlor proposed.
+    function confirmSuccessor(uint256 successorId_) external {
+        if (!accepted) revert NotAccepted();
+        if (msg.sender != identity.ownerOf(agentId)) revert NotOwner();
+        if (successorId_ != proposedSuccessor) revert NotProposed(successorId_);
+        successorId = successorId_;
+        proposedSuccessor = 0;
+        emit SuccessorSet(successorId_);
     }
 
     /// Stops and restarts the draw. Moves nothing: principal, cash and refunds are untouched.
@@ -499,7 +539,9 @@ contract Endowment is ReentrancyGuard {
     }
 
     function sleeveTarget() public view returns (uint256) {
-        return Math.mulDiv(drawPerYear(), SLEEVE, YEAR);
+        // Cash already owed to the agent is never swept into stock, whatever the current rate.
+        uint256 target = Math.mulDiv(drawPerYear(), SLEEVE, YEAR);
+        return target > banked ? target : banked;
     }
 
     function state() external view returns (State memory s) {
@@ -529,7 +571,7 @@ contract Endowment is ReentrancyGuard {
         s.contributed = contributed();
         s.pending = pending;
         s.everAccepted = everAccepted;
-        s.underwater = s.nav * BPS < s.contributed * UNDERWATER_BPS;
+        s.underwater = _underwater(s.nav, s.contributed);
         s.lastSnapshotAt = lastSnapshotAt;
     }
 
@@ -612,11 +654,18 @@ contract Endowment is ReentrancyGuard {
             next = Math.min(Math.max(next, Math.mulDiv(previous, BPS - CHANGE_BPS, BPS)), Math.mulDiv(previous, BPS + CHANGE_BPS, BPS));
         }
         next = Math.min(Math.max(next, Math.mulDiv(counted, FLOOR_BPS, BPS)), Math.mulDiv(counted, CAP_BPS, BPS));
-        if (counted * BPS < contributed() * UNDERWATER_BPS) next = 0;
+        // Underwater is everything held against everything put in. What arrived since the last
+        // valuation sits on both sides, so a fresh gift, or a gift invested and then moved by the
+        // market, can never read as a loss of the principal that was there before it.
+        if (_underwater(v, contributed())) next = 0;
 
         // What accrued at the old rate stays owed at the old rate.
         if (accepted && !frozen && previous != next) _bank();
         annualDraw = next;
+    }
+
+    function _underwater(uint256 nav_, uint256 base) private pure returns (bool) {
+        return nav_ * BPS < base * UNDERWATER_BPS;
     }
 
     function _trySnapshot() private {

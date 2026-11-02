@@ -216,6 +216,7 @@ export function createFacilitatorService(options: ServiceOptions): FacilitatorSe
           minLockMicro: options.baseLane.minLockMicro,
           floatMinimumMicro: config.base.floatMinimumMicro,
           maxPaymentMicro: config.base.maxPaymentMicro,
+          requireBoundPayee: config.base.requireBoundPayee,
           log,
         })
       : null;

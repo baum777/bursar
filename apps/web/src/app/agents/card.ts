@@ -43,9 +43,13 @@ async function providerCard(subject: Address, site: string, fetchFn: typeof fetc
   const client = rhcClient();
   const registry = ADDRESSES.agentRegistry;
   const reputation = ADDRESSES.reputation;
+  // Every figure on the card is read at one block, named on the card, so anyone can replay the
+  // same calls at that block and get the same answers an explorer would.
+  const blockNumber = await client.getBlockNumber();
   const [registered, agent, active, score, cap, stats] = await multicall(client, {
     multicallAddress: MULTICALL3,
     allowFailure: true,
+    blockNumber,
     contracts: [
       { address: registry, abi: agentRegistryAbi, functionName: 'isRegistered', args: [subject] },
       { address: registry, abi: agentRegistryAbi, functionName: 'getAgent', args: [subject] },
@@ -62,23 +66,15 @@ async function providerCard(subject: Address, site: string, fetchFn: typeof fetc
   const taking = active.status === 'success' ? active.result : listing.active;
   const [released, timedOut, disputed] = stats.status === 'success' ? stats.result : [undefined, undefined, undefined];
   const desk = `${site}/providers/${subject}`;
-  const record =
-    released === undefined
-      ? ''
-      : ` Record: ${released} delivered, ${disputed} contested, ${timedOut} returned to the payer.`;
-  const standing =
-    score.status === 'success' && cap.status === 'success'
-      ? score.result === 0
-        ? ` A payer can open jobs up to ${usd(cap.result)} USDG.`
-        : ` Score ${score.result} of 100, which lets a payer open jobs up to ${usd(cap.result)} USDG.`
-      : '';
 
   return {
     type: ERC8004_REGISTRATION_TYPE,
     name,
     description:
+      // A fixed sentence: indexers cache descriptions, and a count inside one goes stale on the
+      // explorer the moment the next job settles. The live figures are in `bursar`, with the block.
       `${name} is a provider on Bursar, paid by agents through escrow on Robinhood Chain. ` +
-      `Listed with a ${usd(listing.stake)} USDG stake and ${taking ? 'taking work' : 'not taking work right now'}.${record}${standing} ` +
+      'Its stake, settlement record and score are read from the chain at the block named in the bursar block of this card. ' +
       'Feedback tagged ruling from a Bursar resolver address is a published ruling on a contested job.',
     image: `${site}/brand/mark.png`,
     services: [
@@ -92,9 +88,19 @@ async function providerCard(subject: Address, site: string, fetchFn: typeof fetc
     bursar: {
       role: 'provider',
       chainId: CHAIN_ID,
+      asOfBlock: Number(blockNumber),
       address: subject,
       providerRegistry: registry,
       reputation,
+      sources: {
+        listing: `AgentRegistry(${registry}).getAgent(${subject})`,
+        score: `Reputation(${reputation}).score(${subject})`,
+        largestJob: `Reputation(${reputation}).capOf(${subject})`,
+        settled: `Reputation(${reputation}).payeeStats(${subject})`,
+      },
+      // Bursar's own score, from its Reputation contract. It is not the ERC-8004 ReputationRegistry
+      // summary, and explorers that compute their own score will show a different number.
+      scoreSource: 'bursar-reputation',
       handle: listing.name,
       stake: usd(listing.stake),
       stakeAsset: 'USDG',

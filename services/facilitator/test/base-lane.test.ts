@@ -51,7 +51,7 @@ const offer = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-function harness(options: { balance?: bigint; feeBps?: number; floor?: bigint; minLock?: bigint; minimum?: bigint; max?: bigint } = {}) {
+function harness(options: { balance?: bigint; feeBps?: number; floor?: bigint; minLock?: bigint; minimum?: bigint; max?: bigint; requireBoundPayee?: boolean } = {}) {
   const escrow = scriptedEscrow();
   const float = new FakeFloat();
   float.balanceMicro = options.balance ?? 10_000_000n;
@@ -70,6 +70,7 @@ function harness(options: { balance?: bigint; feeBps?: number; floor?: bigint; m
     minLockMicro: toMicro(options.minLock ?? 10_000n),
     floatMinimumMicro: toMicro(options.minimum ?? 1_000_000n),
     maxPaymentMicro: toMicro(options.max ?? 5_000_000n),
+    ...(options.requireBoundPayee === undefined ? {} : { requireBoundPayee: options.requireBoundPayee }),
     now: () => now,
     unseenRetryMs: 1,
   });
@@ -208,6 +209,42 @@ describe('pay', () => {
     expect(await h.lane.pay({ lock: openLock(h, 5n, { status: 2 }), binding, offer: offer() })).toMatchObject({ reason: BASE_REASON.notOpen });
     expect(await h.lane.pay({ lock: openLock(h, 6n, { payer: PRINCIPAL }), binding, offer: offer() })).toMatchObject({ reason: BASE_REASON.payer });
     expect(h.float.signed).toHaveLength(0);
+  });
+
+  describe('the payee the lock names', () => {
+    const PAYEE = { network: 'eip155:8453', asset: USDC, payTo: SERVICE, amount: '1000' };
+    const named = requestDocument({ method: 'POST', url: URL, binding, payee: PAYEE });
+    const namedLock = (h: ReturnType<typeof harness>, id: bigint, doc = named) =>
+      openLock(h, id, { inputCommit: requestCommit(doc), inputURI: requestURI(doc) });
+
+    it('signs for the payee and amount the lock commits to', async () => {
+      const h = harness({ requireBoundPayee: true });
+      const signed = (await h.lane.pay({ lock: namedLock(h, 1n), binding, offer: offer() })) as SignedPayment;
+      expect(signed.refused).toBeUndefined();
+      expect(signed.authorization.to).toBe(SERVICE);
+    });
+
+    it('refuses an offer that pays someone else, or more, than the lock names', async () => {
+      const h = harness();
+      const OTHER: Address = '0x000000000000000000000000000000000000dEaD';
+      expect(await h.lane.pay({ lock: namedLock(h, 1n), binding, offer: offer({ payTo: OTHER }) })).toMatchObject({ reason: BASE_REASON.payTo });
+      expect(await h.lane.pay({ lock: namedLock(h, 2n), binding, offer: offer({ amount: '999' }) })).toMatchObject({ reason: BASE_REASON.payTo });
+      expect(h.float.signed).toHaveLength(0);
+    });
+
+    it('ignores a payee in a document the lock does not commit to', async () => {
+      const h = harness({ requireBoundPayee: true });
+      // Bound by the raw nonce, with a document carrying a payee riding along uncommitted.
+      const lock = openLock(h, 1n, { inputCommit: deriveNonce(binding), inputURI: requestURI(named) });
+      expect(await h.lane.pay({ lock, binding, offer: offer() })).toMatchObject({ reason: BASE_REASON.payTo });
+      expect(h.float.signed).toHaveLength(0);
+    });
+
+    it('refuses a lock that names no payee once the lane requires one', async () => {
+      const h = harness({ requireBoundPayee: true });
+      expect(await h.lane.pay({ lock: openLock(h, 1n), binding, offer: offer() })).toMatchObject({ reason: BASE_REASON.payTo });
+      expect(h.float.signed).toHaveLength(0);
+    });
   });
 
   it('refuses an offer the lane does not pay, before reading the lock', async () => {

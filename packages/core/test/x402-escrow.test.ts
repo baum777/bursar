@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { describe, expect, it } from 'vitest';
 import { encodeAbiParameters, keccak256 } from 'viem';
 import { deriveNonce, hashRequest, nonceBindsRequest, randomSalt } from '../src/binding.js';
@@ -102,5 +103,39 @@ describe('the settlement nonce', () => {
     expect(escrowSettlementNonce({ ...lock, escrow: '0x7D82Ad9Dc36734AdCF5Cf985295096b2b575C8C4' })).not.toBe(nonce);
     expect(escrowSettlementNonce({ ...lock, lockId: 8n })).not.toBe(nonce);
     expect(escrowSettlementNonce({ ...lock, inputCommit: `0x${'11'.repeat(32)}` })).not.toBe(nonce);
+  });
+});
+
+describe('a request document that names a payee on another network', () => {
+  const binding = { requestHash: hashRequest('{}'), salt: `0x${'02'.repeat(32)}` as const };
+  const payee = {
+    network: 'eip155:8453',
+    asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as const,
+    payTo: '0xD7d49D6a12Ee3852f29A52A40908069bF4e48914' as const,
+    amount: '1000',
+  };
+
+  it('leaves a document without one byte for byte as before', () => {
+    const plain = requestDocument({ method: 'post', url: 'https://x.dev/a?q=1', binding });
+    expect(Object.keys(plain).sort()).toEqual(['method', 'requestNonce', 'resource']);
+  });
+
+  it('round-trips through the lock URI and changes the commitment', () => {
+    const plain = requestDocument({ method: 'POST', url: 'https://x.dev/a', binding });
+    const named = requestDocument({ method: 'POST', url: 'https://x.dev/a', binding, payee });
+    const read = readRequestURI(requestURI(named));
+    expect(read?.payee).toEqual({ ...payee, asset: payee.asset.toLowerCase(), payTo: payee.payTo.toLowerCase() });
+    expect(requestCommit(read!)).toBe(requestCommit(named));
+    expect(requestCommit(named)).not.toBe(requestCommit(plain));
+  });
+
+  it('refuses a payee with a missing or malformed field', () => {
+    const encode = (doc: unknown) =>
+      `data:${REQUEST_DOCUMENT_MEDIA_TYPE};base64,${Buffer.from(JSON.stringify(doc)).toString('base64')}`;
+    const base = requestDocument({ method: 'POST', url: 'https://x.dev/a', binding });
+    expect(readRequestURI(encode({ ...base, payee: { ...payee, amount: '0' } }))).toBeNull();
+    expect(readRequestURI(encode({ ...base, payee: { ...payee, payTo: 'nobody' } }))).toBeNull();
+    const { amount: _amount, ...short } = payee;
+    expect(readRequestURI(encode({ ...base, payee: short }))).toBeNull();
   });
 });

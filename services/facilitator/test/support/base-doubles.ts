@@ -130,6 +130,11 @@ export class FakeBaseLedger implements BaseLedger {
     return this.rows.filter((row) => row.status === 'signed' || row.status === 'paid').slice(0, limit);
   }
 
+  async defer(id: string): Promise<void> {
+    const index = this.rows.findIndex((row) => row.id === id);
+    if (index >= 0) this.rows.push(...this.rows.splice(index, 1));
+  }
+
   async listMandate(mandate: Address, limit: number): Promise<BasePayment[]> {
     return this.rows.filter((row) => same(row.mandate, mandate)).slice(0, limit);
   }

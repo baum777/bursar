@@ -21,7 +21,7 @@ export function DemoView() {
     <div className="space-y-10">
       <Section
         title="Every provider is an ERC-8004 agent"
-        description="A Bursar provider registers an on-chain identity from its desk. 8004scan and OpenSea list it; rulings can reach its reputation."
+        description="A Bursar provider registers an on-chain identity from its desk. 8004scan indexes it and OpenSea shows it; rulings can reach its reputation."
       >
         <Card>
           <p className="max-w-prose text-sm">

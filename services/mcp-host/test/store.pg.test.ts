@@ -62,6 +62,12 @@ describe.skipIf(TEST_URL === '')('the postgres store', () => {
 
       const revoked = await store.revoke(inserted.id, new Date());
       expect(revoked?.status).toBe('revoked');
+      // The sealed key does not outlive the connection.
+      const after = await store.byId(inserted.id);
+      expect(after?.key.ciphertext.length).toBe(0);
+      expect(after?.key.nonce.length).toBe(0);
+      expect(after?.key.tag.length).toBe(0);
+      expect(() => openKey(KEK, after!.key, { chainId: 4663, mandate: MANDATE, agent })).toThrow();
       expect(await store.revoke(inserted.id, new Date())).toBeNull();
     } finally {
       await db.close();

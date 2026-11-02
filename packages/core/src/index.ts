@@ -266,7 +266,7 @@ export {
   requestDocument,
   requestURI,
 } from './x402-escrow.js';
-export type { EscrowLockIdentity, RequestDocument } from './x402-escrow.js';
+export type { EscrowLockIdentity, RequestDocument, RequestPayee } from './x402-escrow.js';
 
 export {
   DocumentError,
