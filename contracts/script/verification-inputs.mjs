@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 
 const CHAIN = '4663';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const SKIPPED_SEGMENTS = new Set(['contracts', 'token', 'rwa', 'privacy', 'shielded', 'collateral', 'address']);
+const SKIPPED_SEGMENTS = new Set(['contracts', 'token', 'rwa', 'privacy', 'shielded', 'collateral', 'address', 'endowments']);
 const SVM_HOMES = [process.env.SVM_HOME, join(homedir(), 'Library', 'Application Support', 'svm'), join(homedir(), '.svm')].filter(Boolean);
 
 const args = process.argv.slice(2);
@@ -40,7 +40,7 @@ const record = JSON.parse(readFileSync(recordPath, 'utf8'));
 const strip = (hex) => (hex.startsWith('0x') ? hex.slice(2) : hex).toLowerCase();
 
 // Every address in the sections that name deployed contracts, under the first path it appears at.
-const SECTIONS = ['contracts', 'token', 'rwa', 'privacy', 'exampleMandate', 'exampleCollateralMandate', 'exampleCommittedMandate'];
+const SECTIONS = ['contracts', 'token', 'rwa', 'privacy', 'exampleMandate', 'exampleCollateralMandate', 'exampleCommittedMandate', 'endowments'];
 function collect(value, path, into) {
   if (typeof value === 'string') {
     if (/^0x[0-9a-fA-F]{40}$/.test(value) && !into.has(value.toLowerCase())) into.set(value.toLowerCase(), { address: value, path });
