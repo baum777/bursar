@@ -26,6 +26,9 @@ import {StockSpendRouter} from "../src/rwa/StockSpendRouter.sol";
 contract DeployEndowments is BursarScript {
     address private constant IDENTITY = 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432;
     uint16 private constant FEE_BPS = 100;
+    /// The endowment keeper (ops/endowment-keeper.sh signs with it): it reads each remote agent's
+    /// owner on its home chain and writes it to the remote identity.
+    address private constant ATTESTOR = 0x4c55AE3Fd264d9932A673B7CfBF80fCB112679BD;
     string private constant MARK_BASE_URI = "https://app.bursar.world/api/marks/";
 
     string private constant FACTORY = ".endowments.EndowmentFactory";
@@ -33,7 +36,7 @@ contract DeployEndowments is BursarScript {
     string private constant MAKER = ".endowments.EndowmentDeployer";
     string private constant IDENTITY_KEY = ".endowments.IdentityRegistry";
     string private constant REMOTE = ".endowments.RemoteIdentity";
-    string private constant ATTESTOR = ".endowments.attestor";
+    string private constant ATTESTOR_KEY = ".endowments.attestor";
     string private constant FROM_BLOCK = ".endowments.fromBlock";
     string private constant FEE = ".endowments.feeBps";
 
@@ -70,8 +73,7 @@ contract DeployEndowments is BursarScript {
             registry,
             IERC20(usdg),
             IERC721(IDENTITY),
-            // The keeper reads each remote agent's owner on its home chain and writes it to the remote identity.
-            EndowmentFactory.Roles({feeTo: treasury, feeBps: FEE_BPS, guardian: guardian, attestor: _recordAddress(K.KEEPER)}),
+            EndowmentFactory.Roles({feeTo: treasury, feeBps: FEE_BPS, guardian: guardian, attestor: ATTESTOR}),
             marks,
             diversified,
             maker
@@ -80,14 +82,14 @@ contract DeployEndowments is BursarScript {
 
         _expect("factory.router", address(router), address(factory.router()));
         _expect("marks.factory", address(factory), address(factory.marks().factory()));
-        _expect("remote.attestor", _recordAddress(K.KEEPER), factory.remote().attestor());
+        _expect("remote.attestor", ATTESTOR, factory.remote().attestor());
 
         _write(FACTORY, address(factory));
         _write(MARKS, address(factory.marks()));
         _write(MAKER, address(maker));
         _write(IDENTITY_KEY, IDENTITY);
         _write(REMOTE, address(factory.remote()));
-        _write(ATTESTOR, factory.remote().attestor());
+        _write(ATTESTOR_KEY, factory.remote().attestor());
         _write(FROM_BLOCK, fromBlock);
         _write(FEE, uint256(FEE_BPS));
 

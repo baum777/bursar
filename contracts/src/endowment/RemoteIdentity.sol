@@ -18,8 +18,13 @@ contract RemoteIdentity {
     address public immutable attestor;
 
     mapping(uint256 => address) private _owners;
+    /// Ids anyone asked the attestor to read, oldest first. The keeper walks this list; the
+    /// attestor answers each one once and the list keeps growing, so a cursor is all it needs.
+    uint256[] private _requests;
+    mapping(uint256 => bool) public requested;
 
     event Attested(uint64 indexed chainId, uint256 indexed agentId, address indexed owner);
+    event Requested(uint64 indexed chainId, uint256 indexed agentId, address indexed by);
 
     error NotAttestor();
     error ZeroAddress();
@@ -46,6 +51,33 @@ contract RemoteIdentity {
 
     function agentOf(uint256 id) public pure returns (uint256) {
         return id & AGENT_MASK;
+    }
+
+    /// Asks the attestor to read `agentId` on `chainId`: what a patron sends before endowing an agent
+    /// nobody has endowed yet. One entry per id, however often it is asked.
+    function request(uint64 chainId, uint256 agentId) external {
+        uint256 id = idOf(chainId, agentId);
+        if (!requested[id]) {
+            requested[id] = true;
+            _requests.push(id);
+        }
+        emit Requested(chainId, agentId, msg.sender);
+    }
+
+    function requestCount() external view returns (uint256) {
+        return _requests.length;
+    }
+
+    /// Requests from `start`, at most `limit` of them, as encoded ids.
+    function requestsFrom(uint256 start, uint256 limit) external view returns (uint256[] memory ids) {
+        uint256 n = _requests.length;
+        if (start >= n) return ids;
+        uint256 end = start + limit;
+        if (end > n) end = n;
+        ids = new uint256[](end - start);
+        for (uint256 i = start; i < end; ++i) {
+            ids[i - start] = _requests[i];
+        }
     }
 
     /// Records what the home chain's registry answers for `ownerOf(agentId)`. A zero owner records a

@@ -117,6 +117,28 @@ contract RemoteEndowmentTest is EndowmentTest {
         assertTrue(e.accepted());
     }
 
+    function test_anyoneRequestsOnceAndTheKeeperReadsFromACursor() public {
+        vm.prank(stranger);
+        remote.request(BASE, BASE_AGENT);
+        vm.prank(patron);
+        remote.request(BASE, BASE_AGENT);
+        vm.prank(patron);
+        remote.request(ETHEREUM, 42);
+        assertEq(remote.requestCount(), 2);
+        assertTrue(remote.requested(remote.idOf(BASE, BASE_AGENT)));
+
+        uint256[] memory ids = remote.requestsFrom(0, 10);
+        assertEq(ids.length, 2);
+        assertEq(ids[0], remote.idOf(BASE, BASE_AGENT));
+        assertEq(ids[1], remote.idOf(ETHEREUM, 42));
+        assertEq(remote.requestsFrom(1, 10).length, 1);
+        assertEq(remote.requestsFrom(2, 10).length, 0);
+        assertEq(remote.requestsFrom(0, 1).length, 1);
+
+        vm.expectRevert(abi.encodeWithSelector(RemoteIdentity.BadChainId.selector, uint64(0)));
+        remote.request(0, 1);
+    }
+
     function test_attestManyWritesEachAndChecksLengths() public {
         uint64[] memory chains = new uint64[](2);
         uint256[] memory agents = new uint256[](2);
