@@ -1297,5 +1297,53 @@
     "constructorArgs": "",
     "match": "exact",
     "standardJsonBytes": 296509
+  },
+  "v6-StockSpendRouter-selling": {
+    "address": "0x656962e2D2D9F2BD1fAbB2b239Bf0f59dCaFbBBe",
+    "commit": "2a007d7",
+    "contract": "src/rwa/StockSpendRouter.sol:StockSpendRouter",
+    "compiler": "v0.8.24+commit.e11b9ed9",
+    "optimizer": "enabled, 200 runs",
+    "evmVersion": "cancun",
+    "libraries": {},
+    "constructorArgs": "000000000000000000000000bd4950505d45e53740da4941b666b3c79681839300000000000000000000000041a719d866ada35bce10570314312c186570310a0000000000000000000000008366a39cc670b4001a1121b8f6a443a643e40951",
+    "match": "exact",
+    "standardJsonBytes": 221563
+  },
+  "endowments-v1-EndowmentDeployer": {
+    "address": "0xeBD96536f3fb8E4c5eF9a06b91abe218C9273741",
+    "commit": "e9f1d5d",
+    "contract": "src/endowment/EndowmentDeployer.sol:EndowmentDeployer",
+    "compiler": "v0.8.24+commit.e11b9ed9",
+    "optimizer": "enabled, 200 runs",
+    "evmVersion": "cancun",
+    "libraries": {},
+    "constructorArgs": "",
+    "match": "exact",
+    "standardJsonBytes": 293758
+  },
+  "endowments-v1-PatronMark": {
+    "address": "0x22bD65261dFAbdD7c584ca42E6fFA352573e66a5",
+    "commit": "e9f1d5d",
+    "contract": "src/endowment/PatronMark.sol:PatronMark",
+    "compiler": "v0.8.24+commit.e11b9ed9",
+    "optimizer": "enabled, 200 runs",
+    "evmVersion": "cancun",
+    "libraries": {},
+    "constructorArgs": "00000000000000000000000018a4961c3e5c201e76cdd580c22bb2a3cd3d3e6c0000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000002368747470733a2f2f6170702e6275727361722e776f726c642f6170692f6d61726b732f0000000000000000000000000000000000000000000000000000000000",
+    "match": "exact",
+    "standardJsonBytes": 113679
+  },
+  "endowments-v1-EndowmentFactory": {
+    "address": "0x18a4961C3e5c201e76cdD580c22BB2a3cd3d3E6c",
+    "commit": "e9f1d5d",
+    "contract": "src/endowment/EndowmentFactory.sol:EndowmentFactory",
+    "compiler": "v0.8.24+commit.e11b9ed9",
+    "optimizer": "enabled, 200 runs",
+    "evmVersion": "cancun",
+    "libraries": {},
+    "constructorArgs": "000000000000000000000000656962e2d2d9f2bd1fabb2b239bf0f59dcafbbbe00000000000000000000000041a719d866ada35bce10570314312c186570310a000000000000000000000000bd4950505d45e53740da4941b666b3c7968183930000000000000000000000005fc5360d0400a0fd4f2af552add042d716f1d1680000000000000000000000008004a169fb4a3325136eb29fa0ceb6d2e539a4320000000000000000000000007f2d3be9597fb538bdba3dbcb9bececcd9056d2100000000000000000000000000000000000000000000000000000000000000640000000000000000000000007cff32b8b4db47e2cde5907c8f5c93ec6a095e2a00000000000000000000000022bd65261dfabdd7c584ca42e6ffa352573e66a50000000000000000000000000000000000000000000000000000000000000160000000000000000000000000ebd96536f3fb8e4c5ef9a06b91abe218c92737410000000000000000000000000000000000000000000000000000000000000001000000000000000000000000117cc2133c37b721f49de2a7a74833232b3b4c0c",
+    "match": "exact",
+    "standardJsonBytes": 299971
   }
 }
