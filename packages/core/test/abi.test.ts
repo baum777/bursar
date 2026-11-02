@@ -36,6 +36,7 @@ describe('generated ABIs', () => {
       'OracleRegistry',
       'PatronMark',
       'PriceGuard',
+      'RemoteIdentity',
       'Reputation',
       'RobinhoodStockAdapter',
       'SolvencyLog',
