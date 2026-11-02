@@ -108,7 +108,11 @@ describe('what the stats page scans', () => {
     const factories = new Map(plan.mandateFactories.map((scan) => [scan.address.toLowerCase(), scan.fromBlock]));
     expect(factories.get('0x669366d0ae3c6b51fedcf451a01bf741fd2ed08d')).toBe(FLOOR);
     expect(factories.get('0xdbb3bd6172132d9049b2825c5dea18d0bb2a30d1')).toBe(75_627_494n);
-    expect(plan.endowmentFactories).toEqual([{ address: '0x18a4961C3e5c201e76cdD580c22BB2a3cd3d3E6c', fromBlock: 95_410_861n }]);
+    expect(plan.endowmentFactories).toEqual([
+      { address: '0x3b1AF2d844C47913d90D6BDA278C6ccC92466326', fromBlock: 104_504_371n },
+      { address: '0xE3efEd60E6c96dF216372654Bc1B5a7cF986a5b0', fromBlock: 104_119_583n },
+      { address: '0x18a4961C3e5c201e76cdD580c22BB2a3cd3d3E6c', fromBlock: 95_410_861n },
+    ]);
   });
 
   it('picks up a set that lands later without being told about it', () => {

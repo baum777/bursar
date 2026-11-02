@@ -49,6 +49,8 @@ export function scanPlan(records: readonly Deployment[], floor: bigint): ScanPla
     add('mandateFactories', d.privacy?.CommittedMandateFactoryV1Escrow, d.privacy?.fromBlock);
     add('providerRegistries', d.contracts.AgentRegistry, d.fromBlock);
     add('endowmentFactories', d.endowments?.EndowmentFactory, d.endowments?.fromBlock);
+    add('endowmentFactories', d.endowmentsV2?.EndowmentFactory, d.endowmentsV2?.fromBlock);
+    add('endowmentFactories', d.endowmentsV1?.EndowmentFactory, d.endowmentsV1?.fromBlock);
   }
 
   return {

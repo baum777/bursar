@@ -345,8 +345,12 @@ export function answer(
   abi: Abi,
   functionName: string,
   resolve: (args: readonly unknown[], state: NodeState) => unknown,
+  inputs?: number,
 ): [Hex, Answer] {
-  const item = getAbiItem({ abi, name: functionName }) as AbiFunction;
+  // An overloaded name is picked by its input count; the first overload otherwise.
+  const item = (inputs === undefined
+    ? getAbiItem({ abi, name: functionName })
+    : abi.find((entry) => entry.type === 'function' && entry.name === functionName && entry.inputs.length === inputs)) as AbiFunction;
 
   return [toFunctionSelector(item), { abi, functionName, resolve }];
 }

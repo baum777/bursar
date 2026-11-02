@@ -78,7 +78,7 @@ function chain(draw?: () => bigint): Contracts {
       new Map([
         answer(endowmentFactoryAbi as Abi, 'count', () => BigInt(all.length)),
         answer(endowmentFactoryAbi as Abi, 'all', (args) => all[Number(args[0])]),
-        answer(endowmentFactoryAbi as Abi, 'endowmentsOf', () => [WAITING]),
+        answer(endowmentFactoryAbi as Abi, 'endowmentsOf', () => [WAITING], 1),
       ]),
     ],
     [PAYING.toLowerCase(), endowmentAt(ACCOUNT, true, draw)],

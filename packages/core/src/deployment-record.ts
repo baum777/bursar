@@ -108,6 +108,9 @@ export type Deployment = {
   readonly privacy?: PrivacyDeployment;
   /** Endowments for ERC-8004 agents and the patron marks they mint, where deployed. */
   readonly endowments?: EndowmentsDeployment;
+  /** Earlier endowment factories, kept because their endowments still run. */
+  readonly endowmentsV1?: EndowmentsDeployment;
+  readonly endowmentsV2?: EndowmentsDeployment;
 };
 
 export type EndowmentsDeployment = {
@@ -333,6 +336,8 @@ export function parseDeployment(json: unknown, label = 'record'): Deployment {
   const rwa = record['rwa'] === undefined ? undefined : parseRwa(record['rwa'], `${name}.rwa`);
   const privacy = record['privacy'] === undefined ? undefined : parsePrivacy(record['privacy'], name);
   const endowments = record['endowments'] === undefined ? undefined : parseEndowments(record['endowments'], name);
+  const endowmentsV1 = record['endowmentsV1'] === undefined ? undefined : parseEndowments(record['endowmentsV1'], name, 'endowmentsV1');
+  const endowmentsV2 = record['endowmentsV2'] === undefined ? undefined : parseEndowments(record['endowmentsV2'], name, 'endowmentsV2');
 
   const optionalString = (key: string): string | undefined => {
     const value = record[key];
@@ -384,12 +389,14 @@ export function parseDeployment(json: unknown, label = 'record'): Deployment {
     ...(rwa === undefined ? {} : { rwa }),
     ...(privacy === undefined ? {} : { privacy }),
     ...(endowments === undefined ? {} : { endowments }),
+    ...(endowmentsV1 === undefined ? {} : { endowmentsV1 }),
+    ...(endowmentsV2 === undefined ? {} : { endowmentsV2 }),
   }) as Deployment;
 }
 
-function parseEndowments(json: unknown, name: string): EndowmentsDeployment {
-  const r = object(json, name, 'endowments');
-  const label = `${name}.endowments`;
+function parseEndowments(json: unknown, name: string, key = 'endowments'): EndowmentsDeployment {
+  const r = object(json, name, key);
+  const label = `${name}.${key}`;
   const whole = (key: string): number => {
     const value = r[key];
     if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
@@ -401,6 +408,8 @@ function parseEndowments(json: unknown, name: string): EndowmentsDeployment {
     EndowmentFactory: address(r, label, 'EndowmentFactory'),
     PatronMark: address(r, label, 'PatronMark'),
     IdentityRegistry: address(r, label, 'IdentityRegistry'),
+    ...(r['RemoteIdentity'] === undefined ? {} : { RemoteIdentity: address(r, label, 'RemoteIdentity') }),
+    ...(r['attestor'] === undefined ? {} : { attestor: address(r, label, 'attestor') }),
     feeBps: whole('feeBps'),
     fromBlock: whole('fromBlock'),
   });
