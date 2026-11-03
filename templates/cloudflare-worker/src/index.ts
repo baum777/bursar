@@ -2,8 +2,7 @@ import { paymentOf, withBursar } from '@bursar/provider-worker';
 import type { BursarEnv } from '@bursar/provider-worker';
 
 import { SYMBOLS, quote } from './quote';
-
-const RPC_URL = 'https://rpc.mainnet.chain.robinhood.com';
+import type { QuoteEnv } from './quote';
 
 /**
  * Two priced routes. An agent that calls one without paying gets a 402 with the price; one that
@@ -11,17 +10,11 @@ const RPC_URL = 'https://rpc.mainnet.chain.robinhood.com';
  * the Base offer. Everything else passes through free.
  */
 export default {
-  fetch: withBursar<BursarEnv>(
+  fetch: withBursar<BursarEnv & QuoteEnv>(
     async (request, env) => {
       const url = new URL(request.url);
 
-      if (request.method === 'GET' && url.pathname === '/quote') {
-        const symbol = url.searchParams.get('symbol') ?? '';
-        const found = await quote(symbol, env.BURSAR_RPC_URL ?? RPC_URL);
-        // A response that is not a success is never settled, so a bad symbol costs nothing.
-        if (!found) return Response.json({ error: 'unknown_symbol', symbols: SYMBOLS }, { status: 400 });
-        return Response.json(found);
-      }
+      if (request.method === 'GET' && url.pathname === '/quote') return quote(url.searchParams.get('symbol') ?? '', env);
 
       if (request.method === 'POST' && url.pathname === '/render') {
         const { prompt = '' } = (await request.json().catch(() => ({}))) as { prompt?: string };
