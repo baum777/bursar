@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { decodeAgentId, endowmentAbi, scanAgentUrl } from '@bursar/core';
+import { BASE_LANE, decodeAgentId, endowmentAbi, scanAgentUrl } from '@bursar/core';
 import type { Micro } from '@bursar/core';
 
 import { chainLabel } from '@/chain/remote-agents';
@@ -16,7 +16,7 @@ import { rhcClient } from '@/chain/client';
 import { ENDOWMENTS, accruedAfter, agentName, readEndowment, sources } from '@/chain/endowments';
 import type { EndowmentView } from '@/chain/endowments';
 import { ADDRESSES, CHAIN_ID, explorerTx, sameAddress } from '@/chain/rhc';
-import { Address as AddressView } from '@/components/address';
+import { Address as AddressView, CopyControl } from '@/components/address';
 import { AmountInput } from '@/components/amount-input';
 import { Badge, LevelBadge } from '@/components/badge';
 import { Button } from '@/components/button';
@@ -42,6 +42,9 @@ type Activity = {
 };
 
 type Patron = { readonly address: Address; readonly given: bigint; readonly first: bigint };
+
+/** What buyers on Base paid this endowment through the Base lane, read from its `Earned` events. */
+type BaseEarnings = { readonly amount: bigint; readonly sales: number };
 
 export function EndowmentPage({ address }: { readonly address: Address }) {
   const endowment = useQuery({
@@ -157,6 +160,7 @@ export function EndowmentPage({ address }: { readonly address: Address }) {
         </Card>
       </Section>
 
+      <BaseSection view={view} earnings={history.data?.base} />
       <GiveSection view={view} title={title} onChange={refresh} />
       <OwnerSection view={view} onChange={refresh} />
 
@@ -477,7 +481,77 @@ function OwnerSection({ view, onChange }: { readonly view: EndowmentView; readon
   );
 }
 
-async function readHistory(address: Address): Promise<{ readonly activity: readonly Activity[]; readonly patrons: readonly Patron[] }> {
+const SELL_ON_BASE = (endowment: Address) => `import { paymentMiddleware, x402ResourceServer } from '@x402/express';
+import { HTTPFacilitatorClient } from '@x402/core/server';
+import { ExactEvmScheme } from '@x402/evm/exact/server';
+
+const server = new x402ResourceServer(
+  new HTTPFacilitatorClient({ url: '${BASE_LANE.earn}' }),
+).register('eip155:8453', new ExactEvmScheme());
+
+app.use(paymentMiddleware({
+  'GET /answer': {
+    accepts: [{
+      scheme: 'exact',
+      network: 'eip155:8453',
+      price: '$0.01',
+      payTo: '${BASE_LANE.float}',
+      extra: { endowment: '${endowment}' },
+    }],
+  },
+}, server));`;
+
+/**
+ * What the agent earned from buyers on Base. Shown to everyone once there is something to show, and
+ * to the agent's owner from the start, with the few lines that turn on selling there.
+ */
+function BaseSection({ view, earnings }: { readonly view: EndowmentView; readonly earnings: BaseEarnings | undefined }) {
+  const { address: connected } = useWalletAccount();
+  const owner = sameAddress(connected, view.owner);
+  const sales = earnings?.sales ?? 0;
+  if (!owner && sales === 0) return null;
+  const snippet = SELL_ON_BASE(view.address);
+
+  return (
+    <Section title="Earned on Base" description="Sales to x402 buyers on Base, paid into this endowment in USDG.">
+      <Card>
+        <div className="space-y-5">
+          <StatGrid columns={3}>
+            <Stat label="Earned on Base" value={usd((earnings?.amount ?? 0n) as Micro)} hint={sales === 0 ? 'No sales on Base yet.' : `${sales} ${sales === 1 ? 'sale' : 'sales'}, paid in USDC on Base.`} />
+            <Stat label="Kept in the principal" value={bps(view.earnShareBps)} hint="Of each sale. The rest goes to the agent’s mandate." />
+            <Stat label="Paid by" value="Any x402 buyer" hint="USDC on Base, from any wallet or agent that speaks x402." />
+          </StatGrid>
+          {owner && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">Sell on Base</h3>
+              <p className="max-w-3xl text-sm">
+                Your agent can charge buyers on Base and have the money land here. Point its x402 server at Bursar and name this endowment
+                in the price. Buyers pay USDC on Base as they would anyone else; Bursar pays the same amount into this endowment in USDG, less a
+                1% fee (at least $0.002), usually within a minute.
+              </p>
+              <div className="relative">
+                <pre className="overflow-x-auto rounded-md bg-[color:var(--color-raised)] p-3 pr-11 font-mono text-note leading-relaxed">
+                  <code>{snippet}</code>
+                </pre>
+                <span className="absolute right-1.5 top-1.5">
+                  <CopyControl value={snippet} label="Copy the server code" />
+                </span>
+              </div>
+              <p className="max-w-3xl text-detail text-[color:var(--color-muted)]">
+                One sale is capped at $5. A sale goes through only when Bursar can pay it into the endowment at once; otherwise the buyer is
+                refused and nothing is charged.
+              </p>
+            </div>
+          )}
+        </div>
+      </Card>
+    </Section>
+  );
+}
+
+async function readHistory(
+  address: Address,
+): Promise<{ readonly activity: readonly Activity[]; readonly patrons: readonly Patron[]; readonly base: BaseEarnings }> {
   const events = await getContractEvents(rhcClient(), {
     address,
     abi: endowmentAbi,
@@ -485,6 +559,7 @@ async function readHistory(address: Address): Promise<{ readonly activity: reado
   });
   const activity: Activity[] = [];
   const patrons = new Map<string, Patron>();
+  let base: BaseEarnings = { amount: 0n, sales: 0 };
   for (const event of events) {
     const args = (event as unknown as { args: Record<string, unknown> }).args;
     const name = (event as unknown as { eventName: string }).eventName;
@@ -504,9 +579,12 @@ async function readHistory(address: Address): Promise<{ readonly activity: reado
       case 'Unattributed':
         activity.push({ key, kind: 'Gift', detail: `${amount('amount')} from a private sender`, block, hash });
         break;
-      case 'Earned':
-        activity.push({ key, kind: 'Earned', detail: `${amount('amount')}, ${amount('toPrincipal')} kept in the principal`, block, hash });
+      case 'Earned': {
+        const onBase = sameAddress(args['from'] as Address, BASE_LANE.float);
+        if (onBase) base = { amount: base.amount + (args['amount'] as bigint), sales: base.sales + 1 };
+        activity.push({ key, kind: onBase ? 'Earned on Base' : 'Earned', detail: `${amount('amount')}, ${amount('toPrincipal')} kept in the principal`, block, hash });
         break;
+      }
       case 'Drawn':
         activity.push({ key, kind: 'Draw', detail: `${amount('amount')} into the mandate`, block, hash });
         break;
@@ -531,7 +609,7 @@ async function readHistory(address: Address): Promise<{ readonly activity: reado
   }
   activity.sort((a, b) => (a.block === b.block ? 0 : a.block > b.block ? -1 : 1));
   const ranked = [...patrons.values()].sort((a, b) => (a.first === b.first ? 0 : a.first < b.first ? -1 : 1));
-  return { activity: activity.slice(0, 50), patrons: ranked };
+  return { activity: activity.slice(0, 50), patrons: ranked, base };
 }
 
 function shares(raw: bigint, decimals: number): string {
