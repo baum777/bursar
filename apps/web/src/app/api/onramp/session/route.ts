@@ -95,7 +95,9 @@ export async function POST(request: Request): Promise<Response> {
     return refused('Coinbase did not open a session.', 502);
   }
 
-  const origin = new URL(request.url).origin;
+  // Where Coinbase sends the reader back: the site as the world reaches it. Behind a proxy the
+  // request's own origin is the internal listener, so the configured site URL comes first.
+  const origin = (process.env['NEXT_PUBLIC_SITE_URL'] ?? '').replace(/\/+$/, '') || new URL(request.url).origin;
   const url = new URL(ONRAMP_PAGE);
   url.searchParams.set('sessionToken', sessionToken);
   url.searchParams.set('defaultAsset', 'USDC');

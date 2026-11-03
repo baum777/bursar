@@ -106,6 +106,17 @@ describe('a gift by card', () => {
     expect(bound.assets).toEqual(['USDC']);
   });
 
+  it('sends the reader back to the configured site, not the listener behind the proxy', async () => {
+    process.env['NEXT_PUBLIC_SITE_URL'] = 'https://app.bursar.world/';
+    try {
+      const answer = await ask({ endowment: ENDOWMENT, dollars: 10 });
+      const body = (await answer.json()) as { url: string };
+      expect(new URL(body.url).searchParams.get('redirectUrl')).toBe(`https://app.bursar.world/endowments/${ENDOWMENT}?relay=${REQUEST_ID}&from=base`);
+    } finally {
+      delete process.env['NEXT_PUBLIC_SITE_URL'];
+    }
+  });
+
   it('refuses an address that is not an endowment, a bad amount and another site', async () => {
     expect((await ask({ endowment: '0x5210D8df060A9D5ce4c1305045ED5c9548fca374', dollars: 25 })).status).toBe(404);
     expect((await ask({ endowment: ENDOWMENT, dollars: 2 })).status).toBe(400);
