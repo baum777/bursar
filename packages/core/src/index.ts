@@ -52,7 +52,7 @@ export {
 } from './chain.js';
 export type { Caip2, Eip712Domain, RhcChain, RhcNetwork, RhcTestnet } from './chain.js';
 
-export { BASE_MAINNET, baseViemChain } from './base.js';
+export { BASE_LANE, BASE_MAINNET, baseViemChain } from './base.js';
 export type { BaseChain } from './base.js';
 
 export {
@@ -146,7 +146,7 @@ export {
 } from './rwa.js';
 export type { DrawHalt } from './rwa.js';
 export { privacyDeployment } from './privacy.js';
-export { endowmentsDeployment } from './endowments.js';
+export { endowmentFactories, endowmentsDeployment } from './endowments.js';
 
 export {
   adminTimelockAbiV1,

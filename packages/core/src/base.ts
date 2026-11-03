@@ -36,6 +36,21 @@ export const BASE_MAINNET: BaseChain = Object.freeze({
   usdcDecimals: 6,
 });
 
+/**
+ * The Base lane's one address and where it answers.
+ *
+ * The float pays Base services for mandates, and takes Base buyers' USDC for endowments: a seller
+ * names this address as `payTo` and its endowment in `extra.endowment`, and the facilitator pays the
+ * same amount, less its fee, into the endowment in USDG on Robinhood Chain. The console reads an
+ * endowment's `Earned` events from this address as what it earned on Base.
+ */
+export const BASE_LANE = Object.freeze({
+  float: '0x239830833BE550B8CFD2C0D3c476743F94620246' as `0x${string}`,
+  facilitator: 'https://facilitator.bursar.world',
+  /** The standard x402 facilitator surface for sellers whose earnings go to an endowment. */
+  earn: 'https://facilitator.bursar.world/base/earn',
+});
+
 export function baseViemChain(rpcUrl: string = BASE_MAINNET.rpcUrl): Chain {
   return defineChain({
     id: BASE_MAINNET.chainId,
