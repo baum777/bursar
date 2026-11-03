@@ -1,6 +1,6 @@
 {
   "name": "@bursar/x402",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT",
   "description": "The x402 payment scheme Bursar settles with: USDG on Robinhood Chain, verified, bound and settled.",
   "repository": {
