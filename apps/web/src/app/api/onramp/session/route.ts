@@ -74,8 +74,9 @@ export async function POST(request: Request): Promise<Response> {
   const depositAddress = quote.depositAddress;
   if (depositAddress === undefined) return refused('Relay gave this gift no deposit address.', 502);
 
-  // Coinbase's session token, bound to that deposit address on Base and to USDC.
-  const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+  // Coinbase's session token, bound to that deposit address on Base and to USDC. The reader's
+  // address goes along when it is one Coinbase can use; a loopback or private one is left out.
+  const clientIp = publicIp(request.headers.get('x-forwarded-for')?.split(',')[0]?.trim());
   const path = '/onramp/v1/token';
   const tokenResponse = await fetch(cdpUrl(path), {
     method: 'POST',
@@ -112,6 +113,13 @@ export async function POST(request: Request): Promise<Response> {
     expected: quote.arrives.expected.toString(),
     sends: quote.source.amount.toString(),
   });
+}
+
+function publicIp(value: string | undefined): string | undefined {
+  if (value === undefined || value === '') return undefined;
+  if (/^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|0\.|169\.254\.)/.test(value)) return undefined;
+  if (/^(::1|::|fc|fd|fe80)/i.test(value)) return undefined;
+  return value;
 }
 
 function readAsk(body: unknown): Ask | { readonly refused: string } {
