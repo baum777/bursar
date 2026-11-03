@@ -193,6 +193,11 @@ const schema = {
   FACILITATOR_BASE_MAX_PAYMENT_MICRO: optional(envVar.micro({ min: toMicro(1) })),
   /** Refuse a Base lock whose request document does not name the Base payee (SDK 0.3 and up). */
   FACILITATOR_BASE_REQUIRE_BOUND_PAYEE: withDefault(envVar.boolean(), false),
+  /**
+   * Open `/base/earn`: Base buyers pay USDC to the float and the facilitator pays the seller's
+   * endowment on this chain in USDG, under the same fee and the same per-payment cap.
+   */
+  FACILITATOR_BASE_EARN: withDefault(envVar.boolean(), false),
 
   TRUST_TOPIC: withDefault(envVar.string({ minLength: 1 }), 'mandate.trust.v1'),
   TRUST_SINK_URL: optional(envVar.url({ protocols: ['http:', 'https:'] })),
@@ -212,6 +217,8 @@ export type BaseLaneConfig = {
   readonly floatMinimumMicro: Micro;
   readonly maxPaymentMicro: Micro;
   readonly requireBoundPayee: boolean;
+  /** Whether `/base/earn` takes Base buyers' payments for endowments. */
+  readonly earn: boolean;
 };
 
 export type FacilitatorConfig = {
@@ -350,6 +357,13 @@ export function loadConfig(source: EnvSource = process.env): FacilitatorConfig {
     );
   }
 
+  if (env.FACILITATOR_BASE_EARN && !env.FACILITATOR_BASE_KEY) {
+    throw new FacilitatorConfigError(
+      'base_earn_without_float',
+      'FACILITATOR_BASE_EARN is on and FACILITATOR_BASE_KEY is not set. Earnings are taken at the Base float and paid out of its USDG here, so they run only where the Base lane does.',
+    );
+  }
+
   let base: BaseLaneConfig | null = null;
   if (env.FACILITATOR_BASE_KEY) {
     const key = env.FACILITATOR_BASE_KEY as `0x${string}`;
@@ -395,6 +409,7 @@ export function loadConfig(source: EnvSource = process.env): FacilitatorConfig {
       floatMinimumMicro: env.FACILITATOR_BASE_FLOAT_MINIMUM_MICRO as Micro,
       maxPaymentMicro: env.FACILITATOR_BASE_MAX_PAYMENT_MICRO as Micro,
       requireBoundPayee: env.FACILITATOR_BASE_REQUIRE_BOUND_PAYEE,
+      earn: env.FACILITATOR_BASE_EARN,
     };
   }
 
@@ -525,7 +540,7 @@ export function describeConfig(config: FacilitatorConfig): Readonly<Record<strin
     publicExact: config.publicExact,
     underwriter: config.underwriter.mode,
     baseLane: config.base
-      ? { network: BASE_MAINNET.network, asset: BASE_MAINNET.usdc, float: config.base.float, feeBps: config.base.feeBps, feeFloorMicro: config.base.feeFloorMicro.toString(), maxPaymentMicro: config.base.maxPaymentMicro.toString() }
+      ? { network: BASE_MAINNET.network, asset: BASE_MAINNET.usdc, float: config.base.float, feeBps: config.base.feeBps, feeFloorMicro: config.base.feeFloorMicro.toString(), maxPaymentMicro: config.base.maxPaymentMicro.toString(), earn: config.base.earn }
       : null,
     trustTopic: config.trust.topic,
     trustSinkConfigured: config.trust.sinkUrl !== null,

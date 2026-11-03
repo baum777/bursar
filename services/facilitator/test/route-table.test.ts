@@ -80,16 +80,20 @@ describe('the route table in the README', () => {
     // The keyless x402 surface and the Base lane take no token at all: stock clients and agents call them. Nothing else is.
     const open = answered.filter((route) => routeClass(route.split(' ')[1] ?? '') === 'public');
     expect(open.sort()).toEqual([
+      'GET /base/earn/earnings/:',
+      'GET /base/earn/supported',
       'GET /base/float',
       'GET /base/payments/:',
       'GET /x402/supported',
+      'POST /base/earn/settle',
+      'POST /base/earn/verify',
       'POST /base/pay',
       'POST /base/payments/:/outcome',
       'POST /base/quote',
       'POST /x402/settle',
       'POST /x402/verify',
     ]);
-    for (const path of ['/base', '/base/', '/base/other', '/base/payments', '/base/payments/x/y']) expect(routeClass(path)).toBe('admin');
+    for (const path of ['/base', '/base/', '/base/other', '/base/payments', '/base/payments/x/y', '/base/earn', '/base/earn/other', '/base/earn/earnings']) expect(routeClass(path)).toBe('admin');
 
     // The README names the same six under the provider token.
     const tokens = document.slice(document.indexOf('### Two tokens'), document.indexOf('## Configuration'));

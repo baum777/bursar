@@ -27,7 +27,9 @@ import type { Check, Readiness, Router } from './http/routes.js';
 import { createHttpServer, listen } from './http/server.js';
 import type { RunningServer } from './http/server.js';
 import { BaseLane } from './base/lane.js';
-import type { BaseFloat, LockWriter } from './base/ports.js';
+import { BaseEarnings } from './base/earn.js';
+import { PostgresEarnLedger } from './base/earn-ledger.js';
+import type { BaseFloat, BaseIntake, EndowmentCredit, LockWriter } from './base/ports.js';
 import { PostgresBaseLedger } from './base/ledger.js';
 import { createEscrowChain } from './x402/escrow-lock.js';
 import { deploymentsForChain } from '@bursar/core';
@@ -86,7 +88,13 @@ export type ServiceOptions = {
    * The two sides of the Base lane, when `config.base` is set: the float on Base and the payee's
    * moves on Robinhood Chain. `main` builds them from the key; a test passes doubles.
    */
-  readonly baseLane?: { readonly float: BaseFloat; readonly locks: LockWriter; readonly minLockMicro: Micro } | null;
+  readonly baseLane?: {
+    readonly float: BaseFloat;
+    readonly locks: LockWriter;
+    readonly minLockMicro: Micro;
+    /** The earnings side, when `config.base.earn` is on: Base buyers in, endowments paid here. */
+    readonly earn?: { readonly intake: BaseIntake; readonly credit: EndowmentCredit } | null;
+  } | null;
   readonly log?: (line: string) => void;
   readonly now?: () => Date;
 };
@@ -98,6 +106,7 @@ export type FacilitatorService = {
   readonly ledger: LaneLedger;
   readonly facilitator: Facilitator;
   readonly base: BaseLane | null;
+  readonly earn: BaseEarnings | null;
   readonly relay: TrustRelay;
   readonly router: Router;
   readonly rhc: RhcClient;
@@ -221,6 +230,20 @@ export function createFacilitatorService(options: ServiceOptions): FacilitatorSe
         })
       : null;
 
+  const earnSides = config.base?.earn ? options.baseLane?.earn : null;
+  const earn =
+    config.base && earnSides
+      ? new BaseEarnings({
+          intake: earnSides.intake,
+          credit: earnSides.credit,
+          ledger: new PostgresEarnLedger(db, options.now),
+          feeBps: config.base.feeBps,
+          feeFloorMicro: config.base.feeFloorMicro,
+          maxPaymentMicro: config.base.maxPaymentMicro,
+          log,
+        })
+      : null;
+
   const sink =
     options.sink ??
     (config.trust.sinkUrl
@@ -249,11 +272,12 @@ export function createFacilitatorService(options: ServiceOptions): FacilitatorSe
    * would leave an operator guessing which one they have.
    */
   const health = async (): Promise<Readonly<Record<string, unknown>>> => {
-    const [gas, counts, migrations, baseFloat] = await Promise.allSettled([
+    const [gas, counts, migrations, baseFloat, earnings] = await Promise.allSettled([
       checkGasFloat(rhc.client, config.funding, config.gasFloatMinimumWei),
       trust.counts(db),
       appliedMigrations(db),
       base ? base.status() : Promise.resolve(null),
+      earn ? earn.status() : Promise.resolve(null),
     ]);
 
     // Wei, named as wei. The float is ETH and the ledger is micro-USD USDG, and a number that
@@ -281,6 +305,10 @@ export function createFacilitatorService(options: ServiceOptions): FacilitatorSe
         baseFloat.status === 'fulfilled'
           ? (baseFloat.value ?? { configured: false })
           : { configured: true, healthy: false, summary: unread('the Base float', baseFloat.reason, log) },
+      baseEarnings:
+        earnings.status === 'fulfilled'
+          ? (earnings.value ?? { on: false })
+          : { on: true, healthy: false, summary: unread('the earnings ledger and the float', earnings.reason, log) },
       trustOutbox: counts.status === 'fulfilled' ? counts.value : { error: unread('the trust outbox', counts.reason, log, 'database') },
       migrations: migrations.status === 'fulfilled' ? migrations.value : { error: unread('the applied migrations', migrations.reason, log, 'database') },
     };
@@ -319,6 +347,8 @@ export function createFacilitatorService(options: ServiceOptions): FacilitatorSe
     ...(options.underwriterFor ? { underwriterFor: options.underwriterFor } : {}),
     ...(open ? { open } : {}),
     base,
+    earn,
+    publicRatePerMinute: config.publicRatePerMinute,
     health,
     ready,
   });
@@ -364,6 +394,13 @@ export function createFacilitatorService(options: ServiceOptions): FacilitatorSe
         log(`base lane: ${pass.checked} open, ${pass.settled} settled, ${pass.returned} returned, ${pass.pending} pending, ${pass.failed} failed`);
       }
     }
+
+    if (earn) {
+      const pass = await earn.reconcile();
+      if (pass.checked > 0) {
+        log(`base earnings: ${pass.checked} owed, ${pass.received} received, ${pass.credited} credited, ${pass.failed} released, ${pass.pending} waiting, ${pass.errors} failed`);
+      }
+    }
   };
 
   let running: RunningServer | null = null;
@@ -388,6 +425,7 @@ export function createFacilitatorService(options: ServiceOptions): FacilitatorSe
     ledger,
     facilitator,
     base,
+    earn,
     relay,
     router,
     rhc,
@@ -414,6 +452,7 @@ export function createFacilitatorService(options: ServiceOptions): FacilitatorSe
       maintenance.unref();
       log(`facilitator listening on ${config.host}:${running.port} for ${config.network}`);
       if (open) log(`keyless x402 routes open under /x402 at ${config.publicRatePerMinute} requests a minute per caller`);
+      if (earn) log(`Base earnings open under /base/earn: buyers pay ${earn.payTo} on Base, endowments are paid on ${config.chain.name}`);
       return running;
     },
 
@@ -421,6 +460,7 @@ export function createFacilitatorService(options: ServiceOptions): FacilitatorSe
       if (maintenance) clearInterval(maintenance);
       maintenance = null;
       await maintaining;
+      await earn?.idle();
       await relay.stop();
       if (running) await running.close();
       running = null;

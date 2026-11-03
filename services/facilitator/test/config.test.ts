@@ -284,3 +284,24 @@ describe('configuration', () => {
     expect(describeConfig(keyed)['index']).toBe('keyed');
   });
 });
+
+describe('earnings on Base', () => {
+  const lane = {
+    FACILITATOR_BASE_KEY: `0x${'42'.repeat(32)}`,
+    FACILITATOR_BASE_FEE_BPS: '100',
+    FACILITATOR_BASE_FEE_FLOOR_MICRO: '2000',
+    FACILITATOR_BASE_FLOAT_MINIMUM_MICRO: '1000000',
+    FACILITATOR_BASE_MAX_PAYMENT_MICRO: '5000000',
+  };
+
+  it('stay closed unless asked for, and open on the lane they share a float with', () => {
+    expect(loadConfig(env(lane)).base?.earn).toBe(false);
+    const config = loadConfig(env({ ...lane, FACILITATOR_BASE_EARN: 'true' }));
+    expect(config.base?.earn).toBe(true);
+    expect(describeConfig(config)['baseLane']).toMatchObject({ earn: true, float: config.base?.float });
+  });
+
+  it('refuse to open without the Base key', () => {
+    expect(refusalOf(() => loadConfig(env({ FACILITATOR_BASE_EARN: 'true' })))).toMatchObject({ code: 'base_earn_without_float', message: expect.stringContaining('FACILITATOR_BASE_KEY') });
+  });
+});

@@ -21,8 +21,9 @@ import { FacilitatorConfigError } from './errors.js';
 import { loadScheme } from './scheme-module.js';
 import type { PaymentScheme } from './x402/contract.js';
 import { createEscrowChain, createEscrowLockScheme, routeSchemes } from './x402/escrow-lock.js';
-import { createBaseFloat, createLockWriter } from './base/viem.js';
-import { escrowAbi, deploymentsForChain, createRhcClient } from '@bursar/core';
+import { createBaseFloat, createBaseIntake, createEndowmentCredit, createLockWriter, serial } from './base/viem.js';
+import type { BaseIntake, EndowmentCredit } from './base/ports.js';
+import { escrowAbi, deploymentsForChain, createRhcClient, endowmentFactories } from '@bursar/core';
 import type { Micro } from '@bursar/core';
 import type { Check } from './http/routes.js';
 import { createFacilitatorService } from './service.js';
@@ -289,11 +290,16 @@ function standardProfile(scheme: PaymentScheme): PaymentScheme {
  * The Base lane's two sides, from the one key, or null when no key is set.
  *
  * The escrow's floor is read once here: a quote never asks a mandate to lock less than the escrow
- * would open, and the figure is immutable on the contract.
+ * would open, and the figure is immutable on the contract. Every write the key makes on Robinhood
+ * Chain, lock releases and endowment credits alike, goes through one queue, so no two of them are
+ * signed at the same nonce.
  */
-async function wireBaseLane(
-  config: FacilitatorConfig,
-): Promise<{ float: ReturnType<typeof createBaseFloat>; locks: ReturnType<typeof createLockWriter>; minLockMicro: Micro } | null> {
+async function wireBaseLane(config: FacilitatorConfig): Promise<{
+  float: ReturnType<typeof createBaseFloat>;
+  locks: ReturnType<typeof createLockWriter>;
+  minLockMicro: Micro;
+  earn: { intake: BaseIntake; credit: EndowmentCredit } | null;
+} | null> {
   if (!config.base) {
     log('no FACILITATOR_BASE_KEY, so the Base lane is off');
     return null;
@@ -304,10 +310,24 @@ async function wireBaseLane(
   const rhc = createRhcClient({ chain: config.chain, providers: config.rpcProviders });
   const minLockMicro = (await rhc.client.readContract({ address: current.contracts.Escrow, abi: escrowAbi, functionName: 'minLock' })) as Micro;
   log(`Base lane on: float ${config.base.float} pays USDC on Base and settles locks on ${config.chain.name}; smallest lock ${minLockMicro}`);
+  const queue = serial();
+  let earn: { intake: BaseIntake; credit: EndowmentCredit } | null = null;
+  if (config.base.earn) {
+    const factories = endowmentFactories(config.chain.chainId);
+    if (factories.length === 0) {
+      throw new FacilitatorConfigError('base_earn_no_endowments', `FACILITATOR_BASE_EARN is on and no deployment record for chain ${config.chain.chainId} names an endowment factory`);
+    }
+    earn = {
+      intake: createBaseIntake({ key: config.base.key, rpcUrl: config.base.rpcUrl }),
+      credit: createEndowmentCredit({ key: config.base.key, chain: config.chain, rpcUrl: primary, factories, queue }),
+    };
+    log(`Base earnings on: buyers pay ${config.base.float} on Base, endowments from ${factories.length} factories are paid on ${config.chain.name}`);
+  }
   return {
     float: createBaseFloat({ key: config.base.key, rpcUrl: config.base.rpcUrl }),
-    locks: createLockWriter({ key: config.base.key, chain: config.chain, rpcUrl: primary }),
+    locks: createLockWriter({ key: config.base.key, chain: config.chain, rpcUrl: primary, queue }),
     minLockMicro,
+    earn,
   };
 }
 

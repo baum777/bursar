@@ -163,6 +163,7 @@ answers 429 as well. Left unset, the switch is off and the three paths answer 40
 | `FACILITATOR_BASE_FEE_BPS`, `FACILITATOR_BASE_FEE_FLOOR_MICRO` | with the key | The fee on each Base payment, in basis points of the USDC amount, and the smallest fee in atomic units. Money, so no default. |
 | `FACILITATOR_BASE_FLOAT_MINIMUM_MICRO` | with the key | USDC atomic units the lane keeps in reserve. A payment that would dip into it is refused as `base_float_insufficient`. |
 | `FACILITATOR_BASE_MAX_PAYMENT_MICRO` | with the key | The most USDC one authorization may carry. |
+| `FACILITATOR_BASE_EARN` | no | `true` opens `/base/earn`, where buyers on Base pay the float and the facilitator pays the seller's endowment here. Needs the key. Defaults to `false`. See [Earnings on Base](#earnings-on-base). |
 | `FACILITATOR_BASE_RPC_URL` | no | A Base JSON-RPC endpoint. Defaults to the keyless dRPC host, which reads and settles without rate-limiting a verification's burst of reads. |
 | `FACILITATOR_HOST`, `FACILITATOR_PORT` | no | `127.0.0.1:8402`. |
 | `FACILITATOR_AUTH_TOKEN` | off loopback | The provider token. Opens `/verify`, `/settle`, `/supported`, `/config`, `/healthz` and `/readyz`. Required when the host is not loopback. At least 32 characters. |
@@ -271,6 +272,37 @@ On Robinhood Chain it needs a little ETH for release and cancel, a stake in the 
 escrow admits it as a payee, and a place on each paying mandate's merchant list. Released USDG lands
 at that address; the operator sweeps it and refills USDC on Base. `bursar_base_payments` holds one row
 per lock with both transaction hashes, which is the ledger the two sides are reconciled from.
+
+### Earnings on Base
+
+The lane run the other way. A seller on Base names an endowment, and what it earns is paid into that
+endowment on Robinhood Chain. Its 402 offers the standard `exact` scheme in USDC on Base with `payTo`
+set to the lane's float and the endowment in `extra.endowment`; any x402 client pays it unchanged.
+The seller's server points its facilitator at `/base/earn`, which answers the reference
+`/supported`, `/verify` and `/settle` shapes, so a server on `@x402/express`, `@x402/hono` or
+`@x402/next` needs a URL and nothing else. `baseEarnings` in `@bursar/x402` writes the terms.
+
+Before anything moves on Base, a settle checks the buyer's authorization the way the keyless `exact`
+routes do (signature under USDC's own domain, `to` is the float, amount, window, an unspent nonce,
+balance, USDC's pause and blacklist), then that the endowment is one Bursar's factories created, that
+the float's USDG covers this credit on top of every credit already promised, that `earn` on the
+endowment would not revert, and that the float holds enough ETH on Base for the gas. A refusal moves
+nothing. Then the float sends `transferWithAuthorization` on Base and, once USDC reports it, calls
+`earn` on the endowment for the amount less the larger of `FACILITATOR_BASE_FEE_BPS` of it and
+`FACILITATOR_BASE_FEE_FLOOR_MICRO`. One sale is capped at `FACILITATOR_BASE_MAX_PAYMENT_MICRO`.
+
+`bursar_base_earnings` holds one row per authorization, keyed on the payer and the nonce as USDC keys
+them, so a second settle of the same payment answers with the first one's result and sends nothing.
+A row moves `pending` (reserved, Base transfer out), `received` (USDC moved, the endowment is owed),
+`crediting` (a signed `earn` is out; its hash, nonce and raw bytes are written before it is sent) and
+`credited`, or `failed` when the authorization moved nothing. The maintenance pass decides pending rows
+from the token and credits every received one, sending the same bytes again where an earlier credit
+never landed. Every write the float's key makes on Robinhood Chain goes through one queue in this
+process, so run one facilitator per float key. `GET /base/float` carries the totals under `earnings`.
+
+USDC collects at the float on Base, where the outgoing lane spends it, and USDG leaves the float on
+Robinhood Chain, where the outgoing lane's released locks put it, so the two directions fund each
+other. The float needs ETH on Base for each settlement's gas, and USDG on Robinhood Chain for credits.
 
 ### The staking rebate
 
@@ -384,7 +416,19 @@ is on when `FACILITATOR_BASE_KEY` is set and answers `base_lane_off` otherwise
 | `POST /base/pay` | Present a lock payable to the lane and the service's offer; answers the signed USDC authorization. One lock, one authorization. |
 | `GET /base/payments/:paymentId` | One payment and where it stands: `signed`, `paid`, `settled` or `returned`. |
 | `POST /base/payments/:paymentId/outcome` | What the agent saw from the service. A hint for the worker, which decides from the token. |
-| `GET /base/float` | The float's address, USDC balance, what is promised, what is available, and how many payments are open or stuck. |
+| `GET /base/float` | The float's address, USDC balance, what is promised, what is available, and how many payments are open or stuck. With earnings on, their totals under `earnings`. |
+
+### Earnings on Base
+
+Sellers on Base whose earnings go to an endowment point their x402 facilitator here. No token is
+needed. Open when `FACILITATOR_BASE_EARN=true`, `base_earn_off` otherwise ([Earnings on Base](#earnings-on-base)).
+
+| Route | What it does |
+|---|---|
+| `GET /base/earn/supported` | The reference shape: `exact` on `eip155:8453` in USDC, with the float as `extra.payTo`. |
+| `POST /base/earn/verify` | Check a buyer's payment against the seller's terms and the endowment they name. Writes nothing. |
+| `POST /base/earn/settle` | Settle it on Base and pay the endowment. `extra` carries the sale's id, the credit, the fee and its status. |
+| `GET /base/earn/earnings/:earning` | One sale, by its id or by the Base transaction that paid it: `received`, `crediting`, `credited`, with both transactions. |
 
 ### Paying out and repaying
 

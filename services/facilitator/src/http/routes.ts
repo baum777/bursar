@@ -18,6 +18,9 @@ import type { ApiRequest, ApiResponse } from './io.js';
 import { created, failure, ok } from './io.js';
 import type { BaseLane, BaseRefusal } from '../base/lane.js';
 import { BASE_REASON } from '../base/lane.js';
+import type { BaseEarnings } from '../base/earn.js';
+import { EARN_REASON } from '../base/earn.js';
+import { RATE_LIMITED, RequestMeter, callerOf } from '../x402/public.js';
 
 /**
  * The route table, as a function from request to response.
@@ -58,6 +61,10 @@ export type RouterOptions = {
   readonly open?: PublicSurface;
   /** The Base lane, when this deployment holds a Base float. Absent, its routes answer `base_lane_off`. */
   readonly base?: BaseLane | null;
+  /** Earnings on Base for endowments, when FACILITATOR_BASE_EARN is on. Absent, `/base/earn` answers `base_earn_off`. */
+  readonly earn?: BaseEarnings | null;
+  /** Requests a minute one caller may make to the keyless earnings routes. */
+  readonly publicRatePerMinute?: number;
 };
 
 export type Router = (request: ApiRequest) => Promise<ApiResponse>;
@@ -82,8 +89,12 @@ export const PUBLIC_ROUTES: ReadonlySet<string> = new Set(['/x402/supported', '/
  * a pay has to present a lock the agent's mandate already paid for, and the float's standing is an
  * address and two balances anyone can read off the chains, so none of them hands a stranger
  * anything the lock does not already bound.
+ *
+ * `/base/earn` is the standard facilitator surface for sellers on Base whose earnings go to an
+ * endowment. A settle there moves only what the buyer signed, to the float, and pays only an
+ * endowment Bursar's factories created, so it is as open as the keyless `/x402` routes.
  */
-const BASE_LANE_ROUTE = /^\/base\/(float|quote|pay|payments\/[^/]+(\/outcome)?)$/;
+const BASE_LANE_ROUTE = /^\/base\/(float|quote|pay|payments\/[^/]+(\/outcome)?|earn\/(supported|verify|settle|earnings\/[^/]+))$/;
 
 export type RouteClass = 'public' | 'provider' | 'admin';
 
@@ -100,6 +111,8 @@ type Route = {
 
 export function createRouter(options: RouterOptions): Router {
   const { facilitator, ledger, trust, db, open } = options;
+  const earnMeter = new RequestMeter(options.publicRatePerMinute ?? 60);
+  const tooFast = `This caller has made more than ${options.publicRatePerMinute ?? 60} requests to the earnings routes in the last minute.`;
 
   const closed = (): ApiResponse =>
     failure(
@@ -234,7 +247,59 @@ export function createRouter(options: RouterOptions): Router {
     {
       method: 'GET',
       pattern: /^\/base\/float$/,
-      handle: async () => ok(await baseLane().status()),
+      handle: async () => {
+        const status = await baseLane().status();
+        return ok(options.earn ? { ...status, earnings: await options.earn.status() } : status);
+      },
+    },
+
+    {
+      method: 'GET',
+      pattern: /^\/base\/earn\/supported$/,
+      handle: async (request) => {
+        const lane = earnLane();
+        if (!earnMeter.take(callerOf(request))) return failure(429, RATE_LIMITED, tooFast);
+        return ok(await lane.supported());
+      },
+    },
+
+    {
+      method: 'POST',
+      pattern: /^\/base\/earn\/verify$/,
+      handle: async (request) => {
+        const lane = earnLane();
+        if (!earnMeter.take(callerOf(request))) return { status: 429, body: { isValid: false, invalidReason: RATE_LIMITED, invalidMessage: tooFast } };
+        const parsed = readRequest(request.body);
+        if (!parsed.ok) return { status: 400, body: { isValid: false, invalidReason: parsed.reason } };
+        return ok(await lane.verify(parsed.request.paymentPayload, parsed.request.paymentRequirements));
+      },
+    },
+
+    {
+      method: 'POST',
+      pattern: /^\/base\/earn\/settle$/,
+      handle: async (request) => {
+        const lane = earnLane();
+        const network = 'eip155:8453';
+        if (!earnMeter.take(callerOf(request))) {
+          return { status: 429, body: { success: false, settled: false, broadcast: false, errorReason: RATE_LIMITED, errorMessage: tooFast, transaction: '', network } };
+        }
+        const parsed = readRequest(request.body);
+        if (!parsed.ok) return { status: 400, body: { success: false, settled: false, broadcast: false, errorReason: parsed.reason, transaction: '', network } };
+        return ok(await lane.settle(parsed.request.paymentPayload, parsed.request.paymentRequirements));
+      },
+    },
+
+    {
+      method: 'GET',
+      pattern: /^\/base\/earn\/earnings\/([^/]+)$/,
+      handle: async (_request, [key]) => {
+        const lane = earnLane();
+        const raw = (key ?? '').trim();
+        const id = /^0x[0-9a-fA-F]{64}$/.test(raw) ? raw : uuid(raw, 'earning');
+        const earning = await lane.earning(id);
+        return earning ? ok(earning) : failure(404, EARN_REASON.notFound, `no sale on this facilitator by ${raw}`);
+      },
     },
 
     {
@@ -688,6 +753,17 @@ export function createRouter(options: RouterOptions): Router {
         }),
     },
   ];
+
+  function earnLane(): BaseEarnings {
+    if (!options.earn) {
+      throw new RequestError(
+        404,
+        EARN_REASON.off,
+        'This facilitator does not take earnings on Base. FACILITATOR_BASE_EARN=true opens them where the Base lane runs.',
+      );
+    }
+    return options.earn;
+  }
 
   function baseLane(): BaseLane {
     if (!options.base) {
