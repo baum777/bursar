@@ -25,6 +25,7 @@ import {
   feedPrice,
   holdingValue,
   hours,
+  matchesStock,
   minOutAt,
   minUsdgAt,
   refuseEarly,
@@ -70,7 +71,7 @@ function StockBody({ rwa, onChange }: { readonly rwa: RwaState; readonly onChang
   );
   const tradeStaleness = stocks.find((asset) => asset.config)?.config?.tradeStaleness;
   const band = stockBand(stocks);
-  const shown = search.trim() === '' ? stocks : stocks.filter((asset) => matches(asset, search));
+  const shown = search.trim() === '' ? stocks : stocks.filter((asset) => matchesStock(asset, search));
   const groups = groupStocks(shown);
 
   return (
@@ -255,11 +256,6 @@ function HoldingCell({ raw, asset }: { readonly raw: bigint | undefined; readonl
 function stockBand(stocks: readonly RwaAsset[]): number | undefined {
   const bands = new Set(stocks.flatMap((asset) => (asset.config === undefined ? [] : [asset.config.bandBps])));
   return bands.size === 1 ? [...bands][0] : undefined;
-}
-
-function matches(asset: RwaAsset, search: string): boolean {
-  const needle = search.trim().toLowerCase();
-  return asset.symbol.toLowerCase().includes(needle) || (asset.name?.toLowerCase().includes(needle) ?? false);
 }
 
 const GROUP_LABELS: Readonly<Record<string, string>> = {

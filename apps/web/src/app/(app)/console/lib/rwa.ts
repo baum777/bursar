@@ -233,6 +233,22 @@ export function companyOf(name: string | undefined): string | undefined {
   return trimmed === '' ? undefined : trimmed;
 }
 
+/** What people call a stock when its legal name says something else. */
+const KNOWN_AS: Readonly<Record<string, readonly string[]>> = {
+  GOOGL: ['Google'],
+  META: ['Facebook'],
+  SPCX: ['SpaceX'],
+};
+
+const squash = (text: string): string => text.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/** "spacex", "Space X" and "spcx" all find SPCX; spacing and punctuation are ignored. */
+export function matchesStock(asset: Pick<RwaAsset, 'symbol' | 'name'>, search: string): boolean {
+  const needle = squash(search);
+  if (needle === '') return true;
+  return [asset.symbol, asset.name ?? '', ...(KNOWN_AS[asset.symbol] ?? [])].some((text) => squash(text).includes(needle));
+}
+
 export function allowsRwa(classMask: number | undefined): boolean {
   return classMask !== undefined && (classMask & RWA_CLASS_BIT) !== 0;
 }
