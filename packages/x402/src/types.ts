@@ -156,6 +156,8 @@ export type SettleResult = {
   readonly network: string;
   readonly method?: TransferMethod;
   readonly detail?: string;
+  /** Whatever the facilitator reported alongside the settlement, in the reference shape's `extra`. */
+  readonly extra?: Readonly<Record<string, unknown>>;
 };
 
 /** One asset as `GET /supported` describes it, including the domain a payer must sign under. */

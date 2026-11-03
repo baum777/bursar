@@ -89,6 +89,7 @@ export type { AssetMeta, ResolveAssetOptions } from './domain.js';
 export {
   FACET_NOT_FOUND,
   controlFailure,
+  isRevert,
   issuerRefusal,
   readControl,
   revertText,
@@ -116,6 +117,11 @@ export type { UsdgPrice, UsdgSpendControl } from './robinhood-chain.js';
 
 export { createExactScheme } from './scheme.js';
 export type { ExactSchemeConfig } from './scheme.js';
+
+export { BASE_EARNINGS, baseEarnings } from './base-earnings.js';
+export type { BaseEarnings, BaseEarningsOptions, BaseEarningsRoute, EarningCredit, EarningSettlement } from './base-earnings.js';
+
+export { readAuthorization } from './payload.js';
 
 export { createFacilitatorClient } from './facilitator-client.js';
 export type { FacilitatorClient, FacilitatorClientOptions } from './facilitator-client.js';

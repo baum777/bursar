@@ -110,10 +110,12 @@ export function createFacilitatorClient(options: FacilitatorClientOptions): Faci
 
       const payer = payerOf(body);
       if (!isRecord(body) || body['isValid'] !== true) {
+        const detail = detailOf(body, 'invalidMessage');
         return {
           isValid: false,
           invalidReason: reasonOf(body) ?? REASON.payload,
           ...(payer === null ? {} : { payer }),
+          ...(detail === null ? {} : { detail }),
         };
       }
 
@@ -162,6 +164,7 @@ export function createFacilitatorClient(options: FacilitatorClientOptions): Faci
       const success = body['success'] === true;
       const reason = reasonOf(body);
       const payer = payerOf(body);
+      const detail = detailOf(body, 'errorMessage');
       return {
         success,
         settled: readSettled(body['settled'], success),
@@ -170,7 +173,8 @@ export function createFacilitatorClient(options: FacilitatorClientOptions): Faci
         payer: payer ?? '',
         transaction: typeof body['transaction'] === 'string' ? body['transaction'] : '',
         network: typeof body['network'] === 'string' ? body['network'] : network,
-        ...(typeof body['detail'] === 'string' ? { detail: body['detail'] } : {}),
+        ...(detail === null ? {} : { detail }),
+        ...(isRecord(body['extra']) ? { extra: body['extra'] } : {}),
       };
     },
   };
@@ -261,6 +265,13 @@ function reasonOf(body: unknown): InvalidReason | null {
   if (!isRecord(body)) return null;
   const reason = body['invalidReason'] ?? body['errorReason'];
   return typeof reason === 'string' ? (reason as InvalidReason) : null;
+}
+
+/** This service's `detail`, or the reference shape's name for the same sentence. */
+function detailOf(body: unknown, referenceName: 'invalidMessage' | 'errorMessage'): string | null {
+  if (!isRecord(body)) return null;
+  const value = body['detail'] ?? body[referenceName];
+  return typeof value === 'string' ? value : null;
 }
 
 function payerOf(body: unknown): `0x${string}` | null {
