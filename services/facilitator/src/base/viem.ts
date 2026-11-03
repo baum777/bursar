@@ -161,6 +161,7 @@ const USDC_CONTROLS = parseAbi(['function paused() view returns (bool)', 'functi
 
 /** Gas one `transferWithAuthorization` is allowed: about 75,000 is typical on USDC, with room. */
 const SETTLE_GAS = 150_000n;
+const RECEIPT_POLL_MS = 1_000;
 
 export type BaseIntakeOptions = {
   readonly key: Hex;
@@ -226,13 +227,15 @@ export function createBaseIntake(options: BaseIntakeOptions): BaseIntake {
         }
         return client.sendRawTransaction({ serializedTransaction: raw });
       }),
+    // Public Base hosts answer a receipt they have not indexed yet with an error rather than null,
+    // and viem's waiter takes that error as final. Any miss here means "not yet" until the deadline.
     async wait(hash, timeoutMs) {
-      try {
-        const receipt = await client.waitForTransactionReceipt({ hash, timeout: timeoutMs });
-        return { status: receipt.status, blockNumber: receipt.blockNumber };
-      } catch (error) {
-        if (error instanceof WaitForTransactionReceiptTimeoutError) return null;
-        throw error;
+      const deadline = Date.now() + timeoutMs;
+      for (;;) {
+        const receipt = await client.getTransactionReceipt({ hash }).catch(() => null);
+        if (receipt) return { status: receipt.status, blockNumber: receipt.blockNumber };
+        if (Date.now() + RECEIPT_POLL_MS > deadline) return null;
+        await new Promise((resolve) => setTimeout(resolve, RECEIPT_POLL_MS));
       }
     },
     authorizationUsed: (payer, nonce) =>
