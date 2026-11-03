@@ -30,6 +30,7 @@ import { bps, usd, usdExact } from '@/money';
 import { useSystemState } from '@/state';
 import { useWalletAccount } from '@/wallet/account';
 import { useWriteContract } from '@/wallet/write';
+import { CardGiftSection } from './card-gift';
 
 const REFETCH_MS = 20_000;
 
@@ -162,6 +163,7 @@ export function EndowmentPage({ address }: { readonly address: Address }) {
 
       <BaseSection view={view} earnings={history.data?.base} />
       <GiveSection view={view} title={title} onChange={refresh} />
+      <CardGiftSection view={view} onChange={refresh} />
       <OwnerSection view={view} onChange={refresh} />
 
       <Section title="Patrons" description="Everyone who has given at least a dollar holds a patron mark. The first hundred are founding patrons.">

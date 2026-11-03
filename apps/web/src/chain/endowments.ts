@@ -1,6 +1,7 @@
 import {
   assetRegistryAbi,
   decodeAgentId,
+  deploymentsForChain,
   endowmentAbi,
   endowmentFactoryAbi,
   endowmentsDeployment,
@@ -19,6 +20,21 @@ import { homeTokenUri } from './remote-agents';
 import { CHAIN_ID, MULTICALL3, sameAddress } from './rhc';
 
 export const ENDOWMENTS: EndowmentsDeployment | undefined = endowmentsDeployment(CHAIN_ID);
+
+/** Factories that came before the current one and still hold endowments. */
+export function previousFactories(): readonly Address[] {
+  const seen = new Set<string>();
+  const out: Address[] = [];
+  for (const d of deploymentsForChain(CHAIN_ID)) {
+    for (const block of [d.endowmentsV2, d.endowmentsV1]) {
+      const factory = block?.EndowmentFactory;
+      if (factory === undefined || seen.has(factory.toLowerCase()) || factory.toLowerCase() === ENDOWMENTS?.EndowmentFactory.toLowerCase()) continue;
+      seen.add(factory.toLowerCase());
+      out.push(factory);
+    }
+  }
+  return out;
+}
 
 const YEAR_SECONDS = 365n * 24n * 3600n;
 const SLEEVE_SECONDS = 90n * 24n * 3600n;
