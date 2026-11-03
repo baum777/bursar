@@ -9,8 +9,14 @@ BURSAR_PROVIDER = "0x5210D8df060A9D5ce4c1305045ED5c9548fca374"
 # The capability each call falls under. A payer's mandate has to allow it.
 BURSAR_CAPABILITY = "service:render:1"
 # Priced routes, in USDG. METHOD /path=price, separated by commas.
-BURSAR_PRICES = "POST /render=0.01"
+BURSAR_PRICES = "GET /quote=0.001, POST /render=0.01"
+# Optional. Your address on Base: every priced route then also takes USDC on Base, settled by
+# Coinbase, and a route Coinbase settles is listed in the Bazaar and on Agentic.Market.
+# Needs the two CDP secrets below.
+# BURSAR_BASE_PAY_TO = "0x..."
 
 # Secrets, set with `wrangler secret put <NAME>`:
 #   BURSAR_FACILITATOR_TOKEN   the token the facilitator issued you (required)
 #   BURSAR_PROVIDER_KEY        the provider's key, so the worker collects each payment itself (optional)
+#   CDP_API_KEY_ID             your CDP API key id from portal.cdp.coinbase.com (with BURSAR_BASE_PAY_TO)
+#   CDP_API_KEY_SECRET         its secret (with BURSAR_BASE_PAY_TO)

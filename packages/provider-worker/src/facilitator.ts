@@ -31,27 +31,45 @@ export type Facilitator = {
   settle(exchange: Exchange): Promise<Settlement>;
 };
 
+/** Where a facilitator answers, how each call is signed, and what it reads. */
+export type Endpoint = {
+  readonly url: string;
+  /** The network a failed settlement is reported on. */
+  readonly network: string;
+  headers(path: '/verify' | '/settle'): Promise<Record<string, string>>;
+  body(exchange: Exchange): unknown;
+  refused(status: number): string;
+};
+
+/** Bursar's facilitator, which settles both schemes on Robinhood Chain. */
 export function facilitator(config: Config, fetchFn: typeof fetch = fetch): Facilitator {
+  return remote(
+    {
+      url: config.facilitatorUrl,
+      network: NETWORK,
+      headers: async (): Promise<Record<string, string>> => (config.facilitatorToken === undefined ? {} : { authorization: `Bearer ${config.facilitatorToken}` }),
+      body: (exchange) => exchange,
+      refused: (status) => `facilitator refused the token (${status}). Set BURSAR_FACILITATOR_TOKEN to the one it issued you.`,
+    },
+    fetchFn,
+  );
+}
+
+export function remote(endpoint: Endpoint, fetchFn: typeof fetch = fetch): Facilitator {
   async function call(path: '/verify' | '/settle', exchange: Exchange, timeoutMs: number): Promise<unknown> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const response = await fetchFn(`${config.facilitatorUrl}${path}`, {
+      const response = await fetchFn(`${endpoint.url}${path}`, {
         method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          ...(config.facilitatorToken === undefined ? {} : { authorization: `Bearer ${config.facilitatorToken}` }),
-        },
-        body: JSON.stringify(exchange),
+        headers: { 'content-type': 'application/json', ...(await endpoint.headers(path)) },
+        body: JSON.stringify(endpoint.body(exchange)),
         signal: controller.signal,
       });
       const text = await response.text();
+      if (response.status === 401 || response.status === 403) throw new Error(endpoint.refused(response.status));
       if (text.length === 0) throw new Error(`facilitator answered ${response.status} with an empty body`);
-      const body = JSON.parse(text) as unknown;
-      if (response.status === 401 || response.status === 403) {
-        throw new Error(`facilitator refused the token (${response.status}). Set BURSAR_FACILITATOR_TOKEN to the one it issued you.`);
-      }
-      return body;
+      return JSON.parse(text) as unknown;
     } finally {
       clearTimeout(timer);
     }
@@ -81,15 +99,15 @@ export function facilitator(config: Config, fetchFn: typeof fetch = fetch): Faci
         body = await call('/settle', exchange, SETTLE_TIMEOUT_MS);
       } catch (error) {
         console.error('bursar: settle did not answer', message(error));
-        return { success: false, transaction: '', network: NETWORK, payer: '', errorReason: UNCONFIRMED };
+        return { success: false, transaction: '', network: endpoint.network, payer: '', errorReason: UNCONFIRMED };
       }
-      if (!isRecord(body)) return { success: false, transaction: '', network: NETWORK, payer: '', errorReason: UNCONFIRMED };
+      if (!isRecord(body)) return { success: false, transaction: '', network: endpoint.network, payer: '', errorReason: UNCONFIRMED };
       const success = body['success'] === true;
       const reason = body['errorReason'] ?? body['invalidReason'];
       return {
         success,
         transaction: typeof body['transaction'] === 'string' ? body['transaction'] : '',
-        network: typeof body['network'] === 'string' ? body['network'] : NETWORK,
+        network: typeof body['network'] === 'string' ? body['network'] : endpoint.network,
         payer: typeof body['payer'] === 'string' ? body['payer'] : '',
         ...(success || typeof reason !== 'string' ? {} : { errorReason: reason }),
       };

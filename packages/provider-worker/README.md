@@ -48,6 +48,9 @@ Everything comes from the worker's environment. The first three go in `wrangler.
 | `BURSAR_PROVIDER_KEY` | secret, optional | The provider's own key. With it the worker releases each escrow lock it serves, which is what pays you. Without it the locks stay open for the provider desk or the sidecar to release. |
 | `BURSAR_RPC_URL` | no | The endpoint releases are sent through. Defaults to a keyless public one. |
 | `BURSAR_SCHEMES` | no | `escrow`, `exact`, or both. Defaults to both, escrow first. |
+| `BURSAR_BASE_PAY_TO` | no | Your address on Base. Every priced route then also takes its price in USDC on Base, settled by Coinbase. See [Listed on Agentic.Market](#listed-on-agenticmarket). |
+| `CDP_API_KEY_ID` | with `BURSAR_BASE_PAY_TO` | Your CDP API key id, from [portal.cdp.coinbase.com](https://portal.cdp.coinbase.com). |
+| `CDP_API_KEY_SECRET` | secret, with `BURSAR_BASE_PAY_TO` | Its secret, as the portal gave it: the base64 Ed25519 key, or an EC key in PEM. |
 
 A missing or malformed variable answers `500` with the variable named, so a misconfigured deploy
 says what to fix instead of refusing every payment.
@@ -72,6 +75,39 @@ when the lock is released.
 **`exact`** is paid from the agent's own wallet with an EIP-3009 USDG transfer that settlement
 broadcasts. Each payment is checked on its own; the mandate's daily and monthly windows do not
 count it.
+
+## Listed on Agentic.Market
+
+Coinbase's [Agentic.Market](https://agentic.market) lists the x402 services in its Bazaar, and a
+route enters the Bazaar when Coinbase's facilitator settles a payment for it and finds a
+description of the call on that payment. Two things put a Bursar route there:
+
+- **Describe the route.** Pass `discovery` to `withBursar`, keyed by the route's entry in
+  `BURSAR_PRICES`. The 402 then carries Coinbase's discovery extension: what the call takes, a
+  sample response, and the description and icon the listing shows.
+- **Take USDC on Base.** Set `BURSAR_BASE_PAY_TO` and your CDP API key. The route's first offer is
+  then its price in USDC on Base, which any x402 client on Base can pay and Coinbase settles to your
+  address there. Payments from Bursar mandates keep settling on Robinhood Chain through Bursar.
+
+```ts
+export default {
+  fetch: withBursar(handler, {
+    discovery: {
+      'GET /quote': {
+        description: 'Live Chainlink price of a tokenized stock on Robinhood Chain.',
+        input: { symbol: 'NVDA' },
+        inputSchema: { properties: { symbol: { type: 'string' } }, required: ['symbol'] },
+        output: { symbol: 'NVDA', price: '206.84' },
+      },
+    },
+  }),
+};
+```
+
+Before the first sale, Coinbase's validator reads the 402 and says whether the route would be
+indexed, without paying: `POST https://api.cdp.coinbase.com/platform/v2/x402/validate` with
+`{"resource": "<url>", "method": "GET"}`. The listing appears within about 15 minutes of the first
+payment Coinbase settles.
 
 ## Testing
 

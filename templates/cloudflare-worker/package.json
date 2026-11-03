@@ -10,7 +10,9 @@
     "pay": "tsx scripts/pay.ts"
   },
   "dependencies": {
-    "@bursar/provider-worker": "workspace:^"
+    "@bursar/core": "workspace:^",
+    "@bursar/provider-worker": "workspace:^",
+    "viem": "2.56.3"
   },
   "devDependencies": {
     "@bursar/sdk": "workspace:^",
@@ -18,8 +20,7 @@
     "@types/node": "22.20.2",
     "tsx": "4.23.13",
     "typescript": "5.9.3",
-    "wrangler": "4.148.0",
-    "viem": "2.56.3"
+    "wrangler": "4.148.0"
   },
   "engines": {
     "node": ">=22"

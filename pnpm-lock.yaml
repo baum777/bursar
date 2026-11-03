@@ -730,9 +730,15 @@ importers:
 
   templates/cloudflare-worker:
     dependencies:
+      '@bursar/core':
+        specifier: workspace:^
+        version: link:../../packages/core
       '@bursar/provider-worker':
         specifier: workspace:^
         version: link:../../packages/provider-worker
+      viem:
+        specifier: 2.56.3
+        version: 2.56.3(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@4.6.7)
     devDependencies:
       '@bursar/sdk':
         specifier: workspace:^
@@ -749,9 +755,6 @@ importers:
       typescript:
         specifier: 5.9.3
         version: 5.9.3
-      viem:
-        specifier: 2.56.3
-        version: 2.56.3(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@4.6.7)
       wrangler:
         specifier: 4.148.0
         version: 4.148.0(@cloudflare/workers-types@5.20261006.1)(@types/node@22.20.2)(bufferutil@4.1.0)(utf-8-validate@5.0.10)

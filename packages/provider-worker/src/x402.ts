@@ -1,6 +1,6 @@
 import type { Micro } from '@bursar/core';
 
-import { MAX_TIMEOUT_SECONDS, NETWORK } from './config.js';
+import { BASE_NETWORK, BASE_USDC, BASE_USDC_DOMAIN, MAX_TIMEOUT_SECONDS, NETWORK } from './config.js';
 import type { Config, Scheme } from './config.js';
 
 /**
@@ -19,7 +19,7 @@ export type Offer = {
   readonly extra: Readonly<Record<string, string>>;
 };
 
-export type Resource = { readonly url: string; readonly description: string };
+export type Resource = { readonly url: string; readonly description: string; readonly mimeType?: string; readonly iconUrl?: string };
 
 export type PaymentPayload = {
   readonly x402Version?: unknown;
@@ -36,14 +36,30 @@ export type Settlement = {
   readonly errorReason?: string;
 };
 
+/**
+ * The offers a priced route makes. With a Base address configured, USDC on Base comes first: it is
+ * the offer Coinbase's validator reads, and any x402 client on Base can pay it. Bursar's own
+ * clients pick their offer by scheme and network, so the order does not move them.
+ */
 export function offersFor(config: Config, amount: Micro): readonly Offer[] {
-  return config.schemes.map((scheme) => {
+  const robinhood = config.schemes.map((scheme): Offer => {
     const extra: Record<string, string> =
       scheme === 'escrow'
         ? { capability: config.capability, escrow: config.escrow }
         : { name: config.assetDomain.name, version: config.assetDomain.version };
     return { scheme, network: NETWORK, amount: amount.toString(), asset: config.asset, payTo: config.provider, maxTimeoutSeconds: MAX_TIMEOUT_SECONDS, extra };
   });
+  if (!config.base) return robinhood;
+  const base: Offer = {
+    scheme: 'exact',
+    network: BASE_NETWORK,
+    amount: amount.toString(),
+    asset: BASE_USDC,
+    payTo: config.base.payTo,
+    maxTimeoutSeconds: MAX_TIMEOUT_SECONDS,
+    extra: { ...BASE_USDC_DOMAIN },
+  };
+  return [base, ...robinhood];
 }
 
 /**
@@ -54,17 +70,23 @@ export function challenge(
   offers: readonly Offer[],
   resource: Resource,
   error: string,
-  report?: { readonly version: X402Version; readonly settlement: Settlement },
+  options: {
+    readonly extensions?: Readonly<Record<string, unknown>>;
+    readonly report?: { readonly version: X402Version; readonly settlement: Settlement };
+  } = {},
 ): Response {
+  const { extensions, report } = options;
+  const discovered = extensions === undefined ? {} : { extensions };
   const body = {
     x402Version: 2,
     error,
     resource,
     accepts: offers.map((offer) => ({ ...offer, maxAmountRequired: offer.amount, resource: resource.url, description: resource.description })),
+    ...discovered,
   };
   const headers = new Headers({
     'content-type': 'application/json',
-    'payment-required': encodeBase64Json({ x402Version: 2, error, resource, accepts: offers }),
+    'payment-required': encodeBase64Json({ x402Version: 2, error, resource, accepts: offers, ...discovered }),
   });
   if (report) {
     for (const [name, value] of Object.entries(settlementHeaders(report.version, report.settlement))) headers.set(name, value);
@@ -99,10 +121,15 @@ export function acceptedOf(payload: PaymentPayload): Readonly<Record<string, unk
   return { scheme, network, asset, payTo };
 }
 
-/** Whether the terms the payer echoed are the terms this worker offered. The worker's copy is what the facilitator judges. */
+/**
+ * Whether the terms the payer echoed are the terms this worker offered. The worker's copy is what
+ * the facilitator judges. An offer off Robinhood Chain matches only a payment that names its
+ * network, so a payment that leaves the network out is never sent to Coinbase.
+ */
 export function agrees(offer: Offer, accepted: Readonly<Record<string, unknown>>): boolean {
   const same = (left: unknown, right: string) => typeof left === 'string' && left.toLowerCase() === right.toLowerCase();
   if (!same(accepted['scheme'], offer.scheme)) return false;
+  if (offer.network !== NETWORK && !same(accepted['network'], offer.network)) return false;
   if (accepted['payTo'] !== undefined && !same(accepted['payTo'], offer.payTo)) return false;
   if (accepted['asset'] !== undefined && !same(accepted['asset'], offer.asset)) return false;
   if (accepted['network'] !== undefined && !same(accepted['network'], offer.network)) return false;
