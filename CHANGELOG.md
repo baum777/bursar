@@ -12,6 +12,17 @@ development deployment: its timelock delay and its dispute vote windows are one 
 change can be exercised within a day. The 48-hour delay returns before the public launch. Full
 records are in `contracts/deployments/`.
 
+### Listed on Agentic.Market
+
+- `@bursar/provider-worker` 0.2.0 describes each paid route in its 402 with Coinbase's discovery
+  extension (`discovery` in `withBursar`), and with `BURSAR_BASE_PAY_TO` and a CDP API key it also
+  takes the route's price in USDC on Base, settled by Coinbase's facilitator to the provider's Base
+  address. A route Coinbase settles a payment for is indexed in its Bazaar, the catalogue behind
+  Agentic.Market. Payments from mandates keep settling on Robinhood Chain through Bursar.
+- Bursar's own provider sells `GET /quote?symbol=` at bursar-provider.bursar.workers.dev: the
+  Chainlink price of any of the seventeen tokenized assets on Robinhood Chain, SpaceX included, for
+  0.001. It is in Coinbase's Bazaar since 2026-11-03.
+
 ### The Base lane
 
 - A mandate pays an x402 service on Base in USDC. `mandate.fetch(url, { lane: 'base' })` in

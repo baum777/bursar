@@ -1,6 +1,6 @@
 {
   "name": "@bursar/provider-worker",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Charge agents for a Cloudflare Worker route over x402, settled through Bursar on Robinhood Chain.",
   "keywords": [
     "bursar",
