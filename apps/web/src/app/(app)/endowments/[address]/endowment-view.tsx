@@ -7,9 +7,9 @@ import { BASE_LANE, decodeAgentId, endowmentAbi, scanAgentUrl } from '@bursar/co
 import type { Micro } from '@bursar/core';
 
 import { chainLabel } from '@/chain/remote-agents';
-import { getAddress, isAddress } from 'viem';
+import { getAddress, isAddress, parseEventLogs } from 'viem';
 import type { Address, Hex } from 'viem';
-import { getContractEvents, readContract } from 'viem/actions';
+import { getLogs, readContract } from 'viem/actions';
 
 import { settlementAssetAbi } from '@/chain/abi';
 import { rhcClient } from '@/chain/client';
@@ -552,11 +552,10 @@ function BaseSection({ view, earnings }: { readonly view: EndowmentView; readonl
 async function readHistory(
   address: Address,
 ): Promise<{ readonly activity: readonly Activity[]; readonly patrons: readonly Patron[]; readonly base: BaseEarnings }> {
-  const events = await getContractEvents(rhcClient(), {
-    address,
-    abi: endowmentAbi,
-    fromBlock: BigInt(ENDOWMENTS?.fromBlock ?? 0),
-  });
+  // Filtered by address alone: the RPC caps the block range for a query that names several events
+  // in one topic position, and an endowment's whole life spans more than that within hours.
+  const logs = await getLogs(rhcClient(), { address, fromBlock: BigInt(ENDOWMENTS?.fromBlock ?? 0) });
+  const events = parseEventLogs({ abi: endowmentAbi, logs });
   const activity: Activity[] = [];
   const patrons = new Map<string, Patron>();
   let base: BaseEarnings = { amount: 0n, sales: 0 };
