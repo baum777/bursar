@@ -40,6 +40,7 @@ export function AssistantWorkbench({ surface }: { readonly surface: AssistantSur
   useEffect(() => () => controller.current?.abort(), []);
   useEffect(() => { if (open) scrollEnd.current?.scrollIntoView({ block: 'end' }); }, [lines, pending, open]);
 
+  const targetId = pending?.proposal.kind === 'draft.patch' ? pending.proposal.draftId : undefined;
   const context = assistantContext(view, surface);
   const sharedContext = shareDrafts ? context : { ...context, workspace: { ...context.workspace, drafts: [] } };
   let changes: readonly DraftChange[] | undefined;
@@ -76,15 +77,15 @@ export function AssistantWorkbench({ surface }: { readonly surface: AssistantSur
         onEvent: (evt) => {
           if (evt.type === 'delta') {
             responseText += evt.text;
-            setLines((current) => current.map((line, i) => i === current.length - 1 ? { role: 'assistant', content: responseText } : line));
+            setLines((current) => current.map((line, i) => i === current.length - 1 ? { role: 'assistant' as const, content: responseText } : line));
           }
           if (evt.type === 'proposal') {
             setPending({ proposal: evt.proposal, revision });
-            setHistory((old) => [...old.slice(-9), { status: 'proposed', text: 'Draft change proposed for review.' }]);
+            setHistory((old) => [...old.slice(-9), { status: 'proposed' as const, text: 'Draft change proposed for review.' }]);
           }
         },
       });
-      if (!responseText) setLines((current) => current.map((line, i) => i === current.length - 1 ? { role: 'assistant', content: 'The draft proposal is ready for review.' } : line));
+      if (!responseText) setLines((current) => current.map((line, i) => i === current.length - 1 ? { role: 'assistant' as const, content: 'The draft proposal is ready for review.' } : line));
     } catch (error) {
       if (!next.signal.aborted) {
         setFailure(error instanceof Error ? error.message : 'The assistant request failed.');
@@ -109,11 +110,11 @@ export function AssistantWorkbench({ surface }: { readonly surface: AssistantSur
       });
       setLastDraft(createdId ?? (pending.proposal.kind === 'draft.patch' ? pending.proposal.draftId : undefined));
       setPending(null);
-      setHistory((old) => [...old.slice(-9), { status: 'applied', text: 'Local draft saved and verified by the workspace update.' }]);
+      setHistory((old) => [...old.slice(-9), { status: 'applied' as const, text: 'Local draft saved and verified by the workspace update.' }]);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'The workspace refused the operation.';
       setFailure(message);
-      setHistory((old) => [...old.slice(-9), { status: 'refused', text: message }]);
+      setHistory((old) => [...old.slice(-9), { status: 'refused' as const, text: message }]);
     } finally {
       setApplying(false);
     }
@@ -175,7 +176,7 @@ export function AssistantWorkbench({ surface }: { readonly surface: AssistantSur
               {pending && (
                 <section aria-label="Review model proposal" className="border border-[color:var(--color-line-strong)] bg-surface p-4">
                   <h3 className="text-sm font-semibold">Review draft {pending.proposal.kind === 'draft.create' ? 'creation' : 'update'}</h3>
-                  {pending.proposal.kind === 'draft.patch' && <p className="mt-1 break-all font-mono text-note">Target: {view.status === 'unlocked' ? (view.workspace.drafts.find((item) => item.id === pending.proposal.draftId)?.name || pending.proposal.draftId) : pending.proposal.draftId}</p>}
+                  {targetId && <p className="mt-1 break-all font-mono text-note">Target: {view.status === 'unlocked' ? (view.workspace.drafts.find((item) => item.id === targetId)?.name || targetId) : targetId}</p>}
                   <p className="mt-1 text-note text-[color:var(--color-muted)]">This is a model suggestion, not an executed action.</p>
                   {view.status !== 'unlocked' ? (
                     <p className="mt-3 text-detail text-[color:var(--color-state-blocked)]">Unlock or create your Workspace to apply changes.</p>

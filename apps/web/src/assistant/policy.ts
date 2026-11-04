@@ -12,6 +12,12 @@ export function workspaceRevision(workspace: Workspace): string {
   return JSON.stringify(workspace);
 }
 
+/** Local proposals default to approving every payment, never to bypassing consent. */
+function assistantNewDraft(): MandateDraft {
+  const draft = newDraft();
+  return { ...draft, limits: { ...draft.limits, approvalMode: 'every' } };
+}
+
 /** The existing Bursar form owns the underlying limit rules, not the model. */
 function editDraft(draft: MandateDraft, fields: DraftFields): MandateDraft {
   const next = {
@@ -48,7 +54,7 @@ export function previewDraftChange(workspace: Workspace, unsafeProposal: unknown
   if (proposal.kind === 'draft.patch' && old?.activated) {
     throw new AssistantRefusal('activated_draft', 'An activated draft must be edited through the existing Bursar controls.');
   }
-  const before = old ?? newDraft();
+  const before = old ?? assistantNewDraft();
   const after = editDraft(before, proposal.fields);
   return FIELD_ORDER.filter((field) => field in proposal.fields).map((field) => ({
     field,
@@ -74,8 +80,7 @@ export function commitDraftProposal(workspace: Workspace, unsafeProposal: unknow
   }
   const proposal: DraftProposal = parseProposal(unsafeProposal);
   if (proposal.kind === 'draft.create') {
-    const fresh = newDraft();
-    const draft = editDraft({ ...fresh, limits: { ...fresh.limits, approvalMode: 'every' } }, proposal.fields);
+    const draft = editDraft(assistantNewDraft(), proposal.fields);
     return { ...workspace, drafts: [...workspace.drafts, draft] };
   }
   const found = workspace.drafts.find((draft) => draft.id === proposal.draftId);

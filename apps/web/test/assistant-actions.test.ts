@@ -13,7 +13,7 @@ describe('model output cannot extend its authority', () => {
   });
   it('rejects unknown actions, keys, weak approval changes and malformed amounts', () => {
     expect(() => parseProposal({ kind: 'wallet.send', fields: { amount: '10' } })).toThrow(AssistantRefusal);
-    expect(() => parseProposal({ kind: 'draft.create', fields: { name: 'Test', privateTerms: 'secret' } })).toThrow('unsupported');
+    expect(() => parseProposal({ kind: 'draft.create', fields: { name: 'Test', privateTerms: 'secret' } })).toThrow('cannot edit');
     expect(() => parseProposal({ kind: 'draft.create', fields: { approvalMode: 'never' } })).toThrow('cannot disable');
     for (const amount of ['0', '-1', '1.1234567', 'abc', '1e20', '0.0000000']) {
       expect(() => parseProposal({ kind: 'draft.create', fields: { daily: amount } }), amount).toThrow(AssistantRefusal);
