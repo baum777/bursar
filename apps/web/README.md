@@ -74,3 +74,24 @@ Every variable is optional. `.env.example` explains each one.
 ## License
 
 MIT. See [LICENSE](../../LICENSE).
+
+## Optional setup assistant (experimental)
+
+The console can expose a guided, draft-only AI assistant in Workspace and mandate pages.
+It prepares local draft changes for explicit review, never signs or sends a transaction,
+and never calls an MCP signer. Disabled by default; no model requests are made when off.
+
+Set the server-only environment variables shown in `.env.example` and restart the web
+app. You must provide an operator access token of at least 24 characters. Enter it into
+the panel when prompted. It is kept in tab memory and sent only to the same-origin web
+route; it is not stored in IndexedDB, localStorage or chat history.
+
+The model receives only conversation text, public mandate details and (if separately
+opted in) a limited summary of workspace draft names and limits. It never receives
+private terms, passphrases, salts, notes or keys. A proposal is not an authorization:
+applying it requires a human click on the local browser. The existing wallet UI owns
+all on-chain writes. See [the security and routing design](../../docs/ASSISTANT-WORKBENCH.md).
+
+The shared operator token and in-memory rate limiter are suitable for a restricted
+self-hosted evaluation, **not** for an anonymous public multi-tenant deployment. A
+public deployment would require per-user authentication, quotas and abuse protection.
