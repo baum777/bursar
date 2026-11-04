@@ -4,14 +4,21 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/bursar-world/bursar/badge)](https://scorecard.dev/viewer/?uri=github.com/bursar-world/bursar)
 
-Spending mandates for AI agents on Robinhood Chain.
+Endowments and spending mandates for AI agents on Robinhood Chain.
 
-A principal gives an agent a budget: how much per call, per day and per month, which providers
-it may pay, for which capabilities, and above what amount a person has to approve. Those limits
-live in a contract on chain, so a payment that exceeds them reverts there, whatever any service
-in front of it says. The agent pays providers in USDG over [x402](https://www.x402.org), the HTTP
-payment standard where a server answers `402` with a price and the client's retry carries the
-payment. Each payment is held in escrow for the life of one job and can be disputed.
+An **endowment** funds an agent once: the principal stays invested in listed US stocks, anyone can
+add to it, and the agent spends a yearly draw. Any ERC-8004 agent on Robinhood Chain, Base or
+Ethereum can be endowed.
+
+A **mandate** is the budget the agent spends from: how much per call, per day and per month, which
+providers it may pay, for which capabilities, and above what amount a person has to approve. Those
+limits live in a contract on chain, so a payment that exceeds them reverts there, whatever any
+service in front of it says.
+
+The agent pays providers in USDG over [x402](https://www.x402.org), the HTTP payment standard where a
+server answers `402` with a price and the client's retry carries the payment. Each payment is held
+in escrow for the life of one job and can be disputed. A mandate can also pay x402 services on Base
+in USDC, and an agent that sells on Base has its earnings paid into its endowment.
 
 This repository holds all of it: the contracts, the TypeScript SDK and MCP server an agent
 uses, the services that verify and settle payments, and the console at
@@ -29,10 +36,11 @@ Bursar is live on Robinhood Chain mainnet (chain 4663) and settles in USDG. The 
 were deployed on 2026-09-22; the current set, the sixth, has been live since 2026-10-07. Every
 contract in it answers to a 2-of-3 timelock with a 48-hour delay. They hold real funds.
 
-**Who has used it so far.** Every settlement on mainnet to date is a test run by the team: one
-provider (the team's demo provider) and mandates funded from team keys. The figures on the site
-and the agent cards are real chain reads, but none of them is outside demand yet. The first
-settlement from a principal or provider outside the team will be noted here with its transaction.
+**Who has used it so far.** Settlements on mainnet to date come from the team's test runs and from
+agents Bursar runs itself, which buy market data, news and filings from third-party x402 services on
+Base. The [stats page](https://app.bursar.world/stats) shows every figure live from the chain, with
+the share paid by those agents. The first settlement from a principal or provider outside the team
+will be noted here with its transaction.
 
 The caps on mainnet are deliberately low: a provider with no history can be paid at most 25 USDG
 per job, and the cap rises 2.25 USDG per point of score to 250 USDG at a score of 100. The score is
@@ -42,8 +50,8 @@ full score takes 250 USDG of it, so at least four payers. The cap applies to eac
 provider's total. Size any mandate you fund accordingly. [SECURITY.md](SECURITY.md) has the review
 status and the trust assumptions behind these limits.
 
-`@bursar/core`, `@bursar/sdk` and `@bursar/mcp` are on npm at 0.2.0, and `@bursar/x402` at 0.1.0.
-Each can also be built from this repository.
+The packages are on npm under [`@bursar`](https://www.npmjs.com/org/bursar). Each can also be built
+from this repository.
 
 ## Repository layout
 
@@ -53,11 +61,20 @@ Each can also be built from this repository.
 | [`packages/core/`](packages/core/README.md) | Chain configuration, contract addresses and ABIs, money types, and the RPC pool every other package reads the chain through. |
 | [`packages/sdk/`](packages/sdk/README.md) | What an agent developer imports to pay a provider inside a mandate. |
 | [`packages/mcp/`](packages/mcp/README.md) | The same capability as an MCP server, for an agent without code of its own. |
-| [`packages/x402/`](packages/x402/README.md) | The x402 codec and the `exact` EVM payment scheme for USDG. |
+| [`packages/x402/`](packages/x402/README.md) | The x402 codec, the `exact` EVM payment scheme for USDG, and selling on Base into an endowment. |
+| [`packages/mpp/`](packages/mpp/README.md) | Robinhood Chain for the [Machine Payments Protocol](https://mpp.dev) from Stripe and Tempo. |
+| [`packages/provider-worker/`](packages/provider-worker/README.md) | Charges agents for a Cloudflare Worker route. Settles through Bursar on Robinhood Chain and, optionally, through Coinbase on Base, which lists the route on Agentic.Market. |
+| [`packages/create-provider/`](packages/create-provider/README.md) | `npm create @bursar/provider`: scaffolds that Worker from [`templates/cloudflare-worker/`](templates/cloudflare-worker/README.md). |
+| [`packages/integrations/`](packages/integrations/toolset/README.md) | Mandate tools for any agent framework, with adapters for Coinbase AgentKit, LangChain, the OpenAI Agents SDK and the Vercel AI SDK. |
 | [`services/facilitator/`](services/facilitator/README.md) | Verifies and settles x402 payments and keeps the ledger behind the funding lanes. |
 | [`services/underwriter/`](services/underwriter/README.md) | Decides whether an agent may spend, against the live mandate account, and journals the decision. |
 | [`services/sidecar/`](services/sidecar/README.md) | Runs on the provider's side: watches escrow for its jobs, does the work, releases payment. |
-| [`apps/web/`](apps/web/README.md) | The console at app.bursar.world, for principals, providers, resolvers and governance. |
+| [`services/resolver/`](services/resolver/README.md) | Votes Bursar's three bonded resolver keys on every dispute, under the published ruling policy. |
+| [`services/mcp-host/`](services/mcp-host/README.md) | The hosted MCP server at mcp.bursar.world, for ChatGPT, Claude and Gemini. |
+| [`services/asp/`](services/asp/README.md), [`services/relayer/`](services/relayer/README.md) | The association set and the withdrawal relayer behind the shielded USDG pool. |
+| [`services/solvency/`](services/solvency/README.md) | Posts a daily root of what the protocol owes in USDG and what it holds to pay it. |
+| [`apps/web/`](apps/web/README.md) | The console at app.bursar.world, for principals, patrons, providers, resolvers and governance. |
+| `examples/` | Runnable payments: [x402 on Robinhood Chain](examples/x402-rhc/README.md), the [Machine Payments Protocol](examples/mpp-rhc/README.md), [selling on Base into an endowment](examples/base-earn/README.md), and an [OpenClaw skill](examples/openclaw-skill/README.md). |
 | `docs/` | The [ruling policy](docs/RULING-POLICY.md), the [invariants](docs/INVARIANTS.md) every contract holds, the [static analysis](docs/STATIC-ANALYSIS.md) each change is checked against, the [mutation score](docs/MUTATION.md) of the escrow's tests, and the [operations runbook](docs/RUNBOOK.md). |
 
 ## Architecture
@@ -85,6 +102,10 @@ flowchart TB
       MA["MandateAccount"]
       CM["Committed mandates<br/>and proof verifier"]
     end
+    subgraph endow["Endowments"]
+      EF["EndowmentFactory<br/>and RemoteIdentity"]
+      EN["Endowment"]
+    end
     subgraph settle["Settlement and trust"]
       E["Escrow"]
       OR["OracleRegistry"]
@@ -103,7 +124,7 @@ flowchart TB
     end
     subgraph gov["Governance and token"]
       TL["AdminTimelock"]
-      TOK["BURSAR, Staking<br/>Vesting, Buyback"]
+      TOK["Staking and<br/>resolver bonds"]
     end
     subgraph ext["Robinhood Chain assets and markets"]
       USDG[("USDG")]
@@ -112,10 +133,20 @@ flowchart TB
     end
   end
 
+  subgraph base["Base"]
+    BS["x402 services<br/>and buyers, in USDC"]
+  end
+
   P -->|"creates, funds, sets limits"| C
   P -.->|"approves payments above threshold"| MA
   C --> MF
   MF -->|"one account per mandate"| MA
+  C -->|"endows an agent"| EF
+  EF -->|"one per agent"| EN
+  EN -->|"holds listed stocks"| rwa
+  EN -->|"yearly draw"| MA
+  F <-->|"pays services, takes sales"| BS
+  F -->|"earnings"| EN
   A -->|"pays inside its limits"| MA
   A -->|"x402 payment"| F
   F -->|"checks the spend"| U
@@ -141,11 +172,12 @@ flowchart TB
 
   classDef own fill:#faf8f7,stroke:#49345f,color:#49345f
   classDef extn fill:#ffffff,stroke:#ecb29d,color:#49345f
-  class P,C,A,F,U,R,S,MF,MA,CM,E,OR,AR,REP,RG,TP,CV,DR,SL,SP,TL,TOK own
-  class USDG,CL,UNI extn
+  class P,C,A,F,U,R,S,MF,MA,CM,EF,EN,E,OR,AR,REP,RG,TP,CV,DR,SL,SP,TL,TOK own
+  class USDG,CL,UNI,BS extn
 ```
 
-A principal sets limits in the console, and the factory deploys one mandate account for them. An
+A patron endows an agent in the console, and the endowment pays the agent a yearly draw into its
+mandate. A principal sets a mandate's limits, and the factory deploys one account for them. An
 agent pays through that account, directly or as an x402 payment the facilitator checks and
 settles. Each payment is locked in escrow until the provider's sidecar delivers the work and
 releases it. A disputed job goes to bonded resolvers, who vote on chain. A static copy of the
@@ -290,13 +322,16 @@ Stocks, treasury and credit:
 
 Endowments. The factory has no owner and no upgrade path. The guardian key
 (`0x7cfF32B8B4DB47E2Cde5907c8F5c93EC6a095E2A`) can freeze an endowment's draw and cannot move
-funds; the stock list and prices it trades through are under the 48-hour timelock.
+funds; the stock list and prices it trades through are under the 48-hour timelock. `RemoteIdentity`
+carries the owner of an agent registered on Base or Ethereum to Robinhood Chain, attested by a
+keeper from the agent's home chain.
 
 | Contract | Address |
 |---|---|
-| `EndowmentFactory` | [`0x18a4961C3e5c201e76cdD580c22BB2a3cd3d3E6c`](https://robinhoodchain.blockscout.com/address/0x18a4961C3e5c201e76cdD580c22BB2a3cd3d3E6c) |
-| `PatronMark` | [`0x22bD65261dFAbdD7c584ca42E6fFA352573e66a5`](https://robinhoodchain.blockscout.com/address/0x22bD65261dFAbdD7c584ca42E6fFA352573e66a5) |
-| `EndowmentDeployer` | [`0xeBD96536f3fb8E4c5eF9a06b91abe218C9273741`](https://robinhoodchain.blockscout.com/address/0xeBD96536f3fb8E4c5eF9a06b91abe218C9273741) |
+| `EndowmentFactory` | [`0x3b1AF2d844C47913d90D6BDA278C6ccC92466326`](https://robinhoodchain.blockscout.com/address/0x3b1AF2d844C47913d90D6BDA278C6ccC92466326) |
+| `PatronMark` | [`0x804D4C43d0660A2AF240224A7E90BdE4266495d3`](https://robinhoodchain.blockscout.com/address/0x804D4C43d0660A2AF240224A7E90BdE4266495d3) |
+| `EndowmentDeployer` | [`0x12892b2dC544adA967292dd261fC792976DC1143`](https://robinhoodchain.blockscout.com/address/0x12892b2dC544adA967292dd261fC792976DC1143) |
+| `RemoteIdentity` | [`0xAF2226574E3F888072c2aC4697F529bFaE807c2f`](https://robinhoodchain.blockscout.com/address/0xAF2226574E3F888072c2aC4697F529bFaE807c2f) |
 
 Privacy:
 
@@ -313,12 +348,10 @@ Privacy:
 | `WithdrawalVerifier` | [`0xE78C90A981036Db48Bd7a611974148d78417bBE0`](https://robinhoodchain.blockscout.com/address/0xE78C90A981036Db48Bd7a611974148d78417bBE0) |
 | `CommitmentVerifier` | [`0x888922cc4F2C1428f04788823D36511b6062F85b`](https://robinhoodchain.blockscout.com/address/0x888922cc4F2C1428f04788823D36511b6062F85b) |
 
-### Previous set (v3)
+### Earlier set (v3)
 
-The third set, deployed on 2026-09-30, stays on chain and keeps serving the mandates, locks and
-disputes opened through it. The console, the SDK and the MCP server still read it. Its timelock
-is the current one, and its token contracts are listed below as carried over. The rest of the set
-is in [`rhc-mainnet-v3.json`](contracts/deployments/rhc-mainnet-v3.json).
+The third set, deployed on 2026-09-30, is retired. New mandates are created on the current set, and
+its contracts stay on chain. The full set is in [`rhc-mainnet-v3.json`](contracts/deployments/rhc-mainnet-v3.json).
 
 | Contract | Address |
 |---|---|

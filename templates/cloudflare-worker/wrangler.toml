@@ -13,13 +13,13 @@ BURSAR_PRICES = "GET /quote=0.001, POST /render=0.01"
 # Optional. Your address on Base: every priced route then also takes USDC on Base, settled by
 # Coinbase, and a route Coinbase settles is listed in the Bazaar and on Agentic.Market.
 # Needs the two CDP secrets below.
-BURSAR_BASE_PAY_TO = "0x5210D8df060A9D5ce4c1305045ED5c9548fca374"
-# Where GET /quote reads prices: Bursar's console, which reads the chain through its own endpoint pool.
-BURSAR_QUOTES_URL = "https://app.bursar.world/api/quotes"
+# BURSAR_BASE_PAY_TO = "0x..."
+# GET /quote reads the chain. Cloudflare's shared addresses are rate-limited by the keyless
+# endpoints, so point it at an endpoint of your own.
+# BURSAR_RPC_URL = "https://..."
 
 # Secrets, set with `wrangler secret put <NAME>`:
 #   BURSAR_FACILITATOR_TOKEN   the token the facilitator issued you (required)
 #   BURSAR_PROVIDER_KEY        the provider's key, so the worker collects each payment itself (optional)
 #   CDP_API_KEY_ID             your CDP API key id from portal.cdp.coinbase.com (with BURSAR_BASE_PAY_TO)
 #   CDP_API_KEY_SECRET         its secret (with BURSAR_BASE_PAY_TO)
-#   BURSAR_QUOTES_TOKEN        the token the quotes back end answers (with BURSAR_QUOTES_URL)

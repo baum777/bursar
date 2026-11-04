@@ -16,9 +16,12 @@ on Robinhood Chain. Nothing on screen comes from a Bursar database.
 | `/resolvers` | Bonding, and committing and revealing a ruling on a dispute. |
 | `/governance` | Timelock proposals, approvals and execution, and the guardian's pause. |
 | `/ops` | Escrow fee sweeps and the treasury handover. |
+| `/endowments`, `/endowments/[address]` | Endow an agent, add to an endowment, and read its principal, draws and earnings. `/endowments/new` creates one. |
+| `/stats` | What agents have paid through Bursar, read from the contracts. |
 | `/status` | The conditions a payment depends on, each reported separately. |
-| `/token` | BRSR supply, vesting, staking and the buyback, read from chain. |
+| `/token` | $BURSAR: its contract on Robinhood Chain and where it trades. |
 | `/docs` | SDK, MCP and x402 quick starts for developers. |
+| `/api/quotes` | Server route behind the paid quote route on Bursar's demo provider, read through this app's endpoint pool. Answers only its token. |
 | `/api/index` | Server route that proxies the Blockscout index so its key never reaches a browser. |
 
 `/` redirects to `/console`. The public site is [bursar.world](https://bursar.world) and lives in

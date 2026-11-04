@@ -7,10 +7,30 @@ with their chain and date, because a deployed contract does not change when this
 
 ## [Unreleased]
 
-Everything below is live on Robinhood Chain mainnet (chain 4663). The current set is a
-development deployment: its timelock delay and its dispute vote windows are one hour each, so a
-change can be exercised within a day. The 48-hour delay returns before the public launch. Full
-records are in `contracts/deployments/`.
+Everything below is live on Robinhood Chain mainnet (chain 4663). The current set answers to a
+2-of-3 timelock with a 48-hour delay. Full records are in `contracts/deployments/`.
+
+### Endowments beyond Robinhood Chain
+
+- Any ERC-8004 agent on Base or Ethereum can be endowed. A new `EndowmentFactory` and `RemoteIdentity`
+  carry the owner of an agent registered on those chains to Robinhood Chain, where the principal and
+  its rules stay. The earlier factory holds no endowments.
+- An agent can sell over x402 on Base and have its earnings paid into its endowment. A buyer pays
+  USDC on Base with the standard `exact` scheme, and the facilitator pays the amount, less its fee,
+  into the endowment in USDG. `baseEarnings` in `@bursar/x402` 0.1.1 writes the terms.
+
+### Payments and integrations
+
+- `@bursar/mpp` brings Robinhood Chain to the Machine Payments Protocol from Stripe and Tempo: charge
+  in USDG and pay with `mppx`, with Bursar's keyless facilitator settling.
+- An [OpenClaw skill](examples/openclaw-skill) spends from a mandate through the hosted MCP server.
+
+### Console
+
+- `/stats` shows what agents have paid through Bursar, read from the contracts and refreshed every
+  five minutes: payments settled, USDG in escrow and in mandates, providers, endowments and the last
+  30 days, with the share paid by agents Bursar runs.
+- Every page carries its own share card and link preview.
 
 ### Listed on Agentic.Market
 

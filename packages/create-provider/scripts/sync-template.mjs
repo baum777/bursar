@@ -16,6 +16,7 @@ renameSync(new URL('.gitignore', target), new URL('_gitignore', target));
 
 const version = (path) => JSON.parse(readFileSync(new URL(path, here), 'utf8')).version;
 const manifest = JSON.parse(readFileSync(new URL('package.json', target), 'utf8'));
+manifest.dependencies['@bursar/core'] = `^${version('../core/package.json')}`;
 manifest.dependencies['@bursar/provider-worker'] = `^${version('../provider-worker/package.json')}`;
 manifest.devDependencies['@bursar/sdk'] = `^${version('../sdk/package.json')}`;
 writeFileSync(new URL('package.json', target), `${JSON.stringify(manifest, null, 2)}\n`);

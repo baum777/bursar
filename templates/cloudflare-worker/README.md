@@ -1,8 +1,10 @@
 # A Cloudflare Worker that charges agents
 
-One priced route, `POST /render`, paid over x402 and settled through Bursar on Robinhood Chain.
-An agent that calls it without paying gets a 402 with the price. One that pays from its mandate
-gets the result, and the payment lands in escrow for your address.
+Two priced routes, paid over x402 and settled through Bursar on Robinhood Chain:
+`GET /quote?symbol=NVDA` sells the Chainlink price of a tokenized stock, and `POST /render` is a
+stub to replace with your own service. An agent that calls one without paying gets a 402 with the
+price. One that pays from its mandate gets the result, and the payment lands in escrow for your
+address.
 
 ## Deploy
 
@@ -20,10 +22,23 @@ Before you deploy, set three variables in `wrangler.toml`:
 | `BURSAR_CAPABILITY` | The capability each call falls under, such as `service:render:1`. A payer's mandate has to allow it. |
 | `BURSAR_PRICES` | The priced routes, in USDG: `POST /render=0.01, GET /quote=0.001`. |
 
+`GET /quote` reads the chain, and the keyless endpoints rate-limit Cloudflare's shared addresses. Set
+`BURSAR_RPC_URL` to an endpoint of your own, or drop the route from `BURSAR_PRICES`. A quote it cannot
+read answers 503 and costs the buyer nothing.
+
 `BURSAR_FACILITATOR_TOKEN` is the bearer token the facilitator issued you. The worker sends every
 payment it receives to the facilitator to verify and settle, and the hosted one at
 `https://facilitator.bursar.world` answers providers that hold a token. Ask for one, or run your own
 and point `BURSAR_FACILITATOR_URL` at it.
+
+## Listing on Agentic.Market
+
+Set `BURSAR_BASE_PAY_TO` to your address on Base and add your CDP API key as the secrets
+`CDP_API_KEY_ID` and `CDP_API_KEY_SECRET`. Every priced route then also takes its price in USDC on
+Base, settled by Coinbase to that address. `discovery` in `src/index.ts` describes `GET /quote`, and
+Coinbase indexes it into the Bazaar behind [Agentic.Market](https://agentic.market) after the first
+payment it settles. The [package README](https://github.com/bursar-world/bursar/tree/main/packages/provider-worker#listed-on-agenticmarket)
+has the details.
 
 ## Collecting
 

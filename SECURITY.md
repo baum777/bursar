@@ -58,13 +58,9 @@ change is checked against is in [docs/STATIC-ANALYSIS.md](docs/STATIC-ANALYSIS.m
 changes to the escrow its tests catch in [docs/MUTATION.md](docs/MUTATION.md); how the team watches
 and responds is in [docs/RUNBOOK.md](docs/RUNBOOK.md).
 
-- **Governance keys.** The current set is a development deployment. Its timelock has a one-hour
-  delay, and its three signers and guardian are plain keys held by the team, with two approvals
-  needed for any change. Since 2 October 2026 the same timelock administers `Vesting` and holds
-  the community allocation of BRSR, which moved to it from the first set's 48-hour timelock. A
-  timelock with a 48-hour delay and three hardware signers is being put in place to take over
-  from it, through proposals visible on chain; the steps are in
-  [`contracts/script/GOVERNANCE-48H.md`](contracts/script/GOVERNANCE-48H.md).
+- **Governance keys.** Every contract in the current set answers to a 2-of-3 timelock with a 48-hour
+  delay. Its three signers and guardian are keys held by the team. The guardian can pause,
+  and only pause. Proposals are visible on chain before they run.
 - **Resolvers.** Disputes are ruled by three resolver keys run by the team, with a quorum of two
   and a bond of 30,000 BRSR each. Rulings follow the published
   [ruling policy](docs/RULING-POLICY.md), and a vote that misses quorum reopens the lock rather
@@ -160,13 +156,12 @@ There is no bug bounty programme yet. We will say so here when there is one.
 
 In scope:
 
-- The contracts deployed on Robinhood Chain mainnet, chain id 4663. The current set (v4) is a
-  development deployment; the previous set (v3) still holds open locks and disputes. The two share
-  one timelock.
+- The contracts deployed on Robinhood Chain mainnet, chain id 4663. The current set is v6, whose
+  core contracts carry over from v4; earlier sets stay on chain and in scope.
 
-  | Contract | v4 (current) | v3 (previous) |
+  | Contract | Current | v3 (earlier) |
   |---|---|---|
-  | `AdminTimelock` | `0xD91A6577828424E386900D0bB41596c6eF3BF8DF` | `0xD91A6577828424E386900D0bB41596c6eF3BF8DF` |
+  | `AdminTimelock` | `0xffe874aA257C99414205ddf684903e30761E1832` | `0xD91A6577828424E386900D0bB41596c6eF3BF8DF` |
   | `MandateAccountFactory` | `0xC42dBCbd34E64e2D81B48866F673ddB7B42ba562` | `0x946FFE695eCc8Ceb201Cf3Dd07dBd302e289Fd07` |
   | `Escrow` | `0x11e73B5632837355e250fC236cFC2Be03aD0845A` | `0x68D4aD683b5519C785Dde9F0ee0eE09dB2D40919` |
   | `Reputation` | `0x4FEa7af88C60988E80b065F6e2af071C7fB3F5E8` | `0xF2510fB02BaE866fD307CE5f48BBe1B1C2E17238` |

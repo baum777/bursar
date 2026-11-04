@@ -10,6 +10,6 @@ npx wrangler secret put BURSAR_FACILITATOR_TOKEN
 npx wrangler deploy
 ```
 
-The project it writes is the `templates/cloudflare-worker` template from the repository: one priced
-route, `POST /render`, charged through [`@bursar/provider-worker`](https://www.npmjs.com/package/@bursar/provider-worker).
+The project it writes is the `templates/cloudflare-worker` template from the repository: two priced
+routes, `GET /quote` and `POST /render`, charged through [`@bursar/provider-worker`](https://www.npmjs.com/package/@bursar/provider-worker).
 Its README says what to set before deploying and how an agent pays it.
