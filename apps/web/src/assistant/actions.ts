@@ -17,7 +17,7 @@ export type DraftProposal =
   | { readonly kind: 'draft.patch'; readonly draftId: string; readonly fields: DraftFields };
 
 const FIELDS = ['name', 'perCall', 'daily', 'total', 'approvalMode', 'approvalAmount', 'validUntil'] as const;
-const MONEY = /^(?:0*[1-9][0-9]{0,11}|0*[0-9]{0,11}[.,][0-9]{0,5}[1-9][0-9]{0,5})$/u;
+const MONEY = /^\d{1,12}(?:[.,]\d{1,6})?$/u;
 const DATE = /^\d{4}-\d{2}-\d{2}$/u;
 
 export class AssistantRefusal extends Error {
@@ -44,7 +44,7 @@ export function parseProposal(value: unknown): DraftProposal {
     if (key === 'name' && (normalized.length < 1 || normalized.length > 80)) {
       throw new AssistantRefusal('invalid_name', 'A draft name needs 1 to 80 characters.');
     }
-    if (['perCall', 'daily', 'total', 'approvalAmount'].includes(key) && !MONEY.test(normalized)) {
+    if (['perCall', 'daily', 'total', 'approvalAmount'].includes(key) && (!MONEY.test(normalized) || !/[1-9]/u.test(normalized))) {
       throw new AssistantRefusal('invalid_amount', key + ' must be a positive USDG amount with at most six decimals.');
     }
     if (key === 'validUntil' && normalized !== '' && (!DATE.test(normalized) || Number.isNaN(Date.parse(normalized + 'T00:00:00Z')))) {

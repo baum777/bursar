@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { AssistantWorkbench } from '@/components/assistant/assistant-workbench';
 
 import { ADDRESSES, sameAddress } from '@/chain/rhc';
 import { Address as AddressView } from '@/components/address';
@@ -23,7 +24,7 @@ import { StockPanel } from './stock-panel';
 import { useMandateScope } from './mandate-scope';
 
 /** The mandate at a glance: what stands in the way, what is left, what it holds, and who it pays. */
-export function OverviewView() {
+export function OverviewView({ assistantEnabled = false }: { readonly assistantEnabled?: boolean }) {
   const { address, account, system, ledger } = useMandateScope();
 
   return (
@@ -53,6 +54,12 @@ export function OverviewView() {
       <AssistantPanel />
       <ControlPanel />
       <IdentityPanel />
+      {assistantEnabled && (
+        <AssistantWorkbench surface={{
+          kind: 'mandate', address, paused: account?.paused, revoked: account?.revoked,
+          perCallMicros: account?.limits.perCallCap.toString(), dailyMicros: account?.limits.dailyCap.toString(),
+        }} />
+      )}
 
       <Section
         title="Recent activity"

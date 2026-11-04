@@ -74,7 +74,8 @@ export function commitDraftProposal(workspace: Workspace, unsafeProposal: unknow
   }
   const proposal: DraftProposal = parseProposal(unsafeProposal);
   if (proposal.kind === 'draft.create') {
-    const draft = editDraft({ ...newDraft(), limits: { ...newDraft().limits, approvalMode: 'every' } }, proposal.fields);
+    const fresh = newDraft();
+    const draft = editDraft({ ...fresh, limits: { ...fresh.limits, approvalMode: 'every' } }, proposal.fields);
     return { ...workspace, drafts: [...workspace.drafts, draft] };
   }
   const found = workspace.drafts.find((draft) => draft.id === proposal.draftId);

@@ -10,5 +10,5 @@ export const metadata: Metadata = shareMetadata('workspace', {
 });
 
 export default function WorkspacePage() {
-  return <WorkspaceView />;
+  return <WorkspaceView assistantEnabled={process.env['BURSAR_ASSISTANT_ENABLED'] === 'true'} />;
 }

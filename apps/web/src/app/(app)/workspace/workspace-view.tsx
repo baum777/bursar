@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { AssistantWorkbench } from '@/components/assistant/assistant-workbench';
 import { useRouter } from 'next/navigation';
 import { useId, useState } from 'react';
 import type { FormEvent } from 'react';
@@ -22,7 +23,7 @@ import type { AgentField, DraftField } from '@/workspace/readable';
 import { isTotalDraft } from '../console/limits-form';
 import { WorkspaceGate } from './gate';
 
-export function WorkspaceView() {
+export function WorkspaceView({ assistantEnabled = false }: { readonly assistantEnabled?: boolean }) {
   return (
     <div className="space-y-10">
       <Section
@@ -31,6 +32,7 @@ export function WorkspaceView() {
       >
         <WorkspaceGate>{(workspace) => <OpenWorkspace workspace={workspace} />}</WorkspaceGate>
       </Section>
+      {assistantEnabled && <AssistantWorkbench surface={{ kind: 'workspace' }} />}
     </div>
   );
 }

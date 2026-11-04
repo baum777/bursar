@@ -9,5 +9,5 @@ export const metadata: Metadata = shareMetadata('console', {
 });
 
 export default function MandatePage() {
-  return <OverviewView />;
+  return <OverviewView assistantEnabled={process.env['BURSAR_ASSISTANT_ENABLED'] === 'true'} />;
 }

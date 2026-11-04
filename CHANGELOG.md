@@ -27,6 +27,9 @@ Everything below is live on Robinhood Chain mainnet (chain 4663). The current se
 
 ### Console
 
+- Experimental, disabled-by-default setup assistant in the web console: a guided chat
+  prepares reviewed local mandate drafts; no autonomous payment or contract changes.
+
 - `/stats` shows what agents have paid through Bursar, read from the contracts and refreshed every
   five minutes: payments settled, USDG in escrow and in mandates, providers, endowments and the last
   30 days, with the share paid by agents Bursar runs.
