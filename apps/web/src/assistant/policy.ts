@@ -20,6 +20,9 @@ function assistantNewDraft(): MandateDraft {
 
 /** The existing Bursar form owns the underlying limit rules, not the model. */
 function editDraft(draft: MandateDraft, fields: DraftFields): MandateDraft {
+  if (fields.total !== undefined && draft.limits.longWindow !== 0) {
+    throw new AssistantRefusal('window_change_refused', 'Converting a rolling second cap to a lifetime budget requires the manual Bursar editor.');
+  }
   const next = {
     ...draft,
     name: fields.name ?? draft.name,

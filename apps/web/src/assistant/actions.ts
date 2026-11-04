@@ -47,7 +47,7 @@ export function parseProposal(value: unknown): DraftProposal {
     if (['perCall', 'daily', 'total', 'approvalAmount'].includes(key) && (!MONEY.test(normalized) || !/[1-9]/u.test(normalized))) {
       throw new AssistantRefusal('invalid_amount', key + ' must be a positive USDG amount with at most six decimals.');
     }
-    if (key === 'validUntil' && normalized !== '' && (!DATE.test(normalized) || Number.isNaN(Date.parse(normalized + 'T00:00:00Z')))) {
+    if (key === 'validUntil' && normalized !== '' && (!DATE.test(normalized) || !Number.isFinite(Date.parse(normalized + 'T00:00:00Z')) || new Date(normalized + 'T00:00:00Z').toISOString().slice(0, 10) !== normalized)) {
       throw new AssistantRefusal('invalid_date', 'The expiry must be a valid ISO date.');
     }
     if (key === 'approvalMode' && normalized !== 'every' && normalized !== 'above') {

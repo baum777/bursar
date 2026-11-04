@@ -36,6 +36,12 @@ describe('workspace changes are reviewed and applied only against the captured r
     expect(() => commitDraftProposal(current, proposal, workspaceRevision(current))).toThrow('activated');
     expect(() => commitDraftProposal(EMPTY_WORKSPACE, proposal, workspaceRevision(EMPTY_WORKSPACE))).toThrow('no longer exists');
   });
+  it('does not silently convert rolling limits to lifetime budgets', () => {
+    const draft = newDraft();
+    const rolling = { ...draft, limits: { ...draft.limits, longWindow: 2_592_000, monthly: '10' } };
+    const current: Workspace = { ...EMPTY_WORKSPACE, drafts: [rolling] };
+    expect(() => previewDraftChange(current, { kind: 'draft.patch', draftId: draft.id, fields: { total: '20' } })).toThrow('manual Bursar editor');
+  });
   it('does not leak private mandate terms through the allowed model context', () => {
     const source = newDraft();
     const privateDraft = { ...source, notes: 'HIDDEN NOTES', privateTerms: { salt: 'HIDDEN SALT' } } as unknown as typeof source;

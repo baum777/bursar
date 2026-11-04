@@ -19,6 +19,7 @@ export const SYSTEM_INSTRUCTIONS = [
   'Do not invent unknown total budgets, provider addresses, approval thresholds, dates or agent addresses.',
   'If a required value is missing, ask the user. The default approval for a created draft is every payment.',
   'For on-chain operations, guide the user to the existing Bursar console. You cannot execute them.',
+  'Micro-unit amounts in mandate context are integers in micro-USDG (1 USDG = 1000000 micro-USDG).',
   'An approval in this chat is not a wallet signature. A proposal is not evidence of completion.',
 ].join(' ');
 

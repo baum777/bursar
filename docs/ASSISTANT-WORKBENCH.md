@@ -17,7 +17,7 @@ the existing MCP host, spender, wallet or smart-contract checks.
    workspace, renders exact old/new values and requires an Apply click.
 6. The WorkspaceActions.update closure checks the full local workspace revision
    again and runs Bursar's existing limits validation before saving.
-7. Successful creation offers links to the existing draft editor and
+7. Successful local persistence offers links to the existing draft editor and
    /console/new?draft=<id> UI for activation and owner wallet signatures.
 
 ## Capability lanes

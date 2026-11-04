@@ -110,7 +110,7 @@ export function AssistantWorkbench({ surface }: { readonly surface: AssistantSur
       });
       setLastDraft(createdId ?? (pending.proposal.kind === 'draft.patch' ? pending.proposal.draftId : undefined));
       setPending(null);
-      setHistory((old) => [...old.slice(-9), { status: 'applied' as const, text: 'Local draft saved and verified by the workspace update.' }]);
+      setHistory((old) => [...old.slice(-9), { status: 'applied' as const, text: 'Local draft saved. No on-chain transaction sent.' }]);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'The workspace refused the operation.';
       setFailure(message);

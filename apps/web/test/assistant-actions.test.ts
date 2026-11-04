@@ -19,6 +19,7 @@ describe('model output cannot extend its authority', () => {
       expect(() => parseProposal({ kind: 'draft.create', fields: { daily: amount } }), amount).toThrow(AssistantRefusal);
     }
     expect(() => parseProposal({ kind: 'draft.patch', fields: { name: 'No ID' } })).toThrow('draft ID');
+    expect(() => parseProposal({ kind: 'draft.create', fields: { validUntil: '2026-02-30' } })).toThrow('valid ISO date');
     expect(() => parseProposal({ kind: 'draft.create', draftId: 'target', fields: { name: 'No' } })).toThrow('Create cannot');
   });
   it('accepts only known tool names with one bounded proposal', () => {
